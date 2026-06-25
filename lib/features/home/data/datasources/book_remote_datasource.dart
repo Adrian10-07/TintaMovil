@@ -7,8 +7,6 @@ class BookRemoteDataSource {
   final ApiClient _apiClient;
   final String _baseUrl = 'https://www.googleapis.com/books/v1/volumes';
 
-  // TODO: Reemplaza esto con la clave que obtuviste en Google Cloud
-
   BookRemoteDataSource(this._apiClient);
 
   Future<List<Book>> fetchGoogleBooks({
@@ -18,8 +16,11 @@ class BookRemoteDataSource {
   }) async {
     final encodedQuery = Uri.encodeComponent(query);
 
-    // SOLUCIÓN: Agregamos el parámetro &key=$_apiKey al final de la URL
-    final url =  dotenv.env['GOOGLE_BOOKS_API_KEY'] ?? '';
+    // 1. Obtenemos la clave de forma segura del .env
+    final apiKey = dotenv.env['GOOGLE_BOOKS_API_KEY'] ?? '';
+
+    // 2. Armamos la URL completa sumando la ruta, los parámetros y la clave al final
+    final url = '$_baseUrl?q=$encodedQuery&startIndex=$startIndex&maxResults=$maxResults&key=$apiKey';
 
     try {
       final responseData = await _apiClient.get(url);

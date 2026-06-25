@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // Core
 import 'core/di/service_locator.dart';
@@ -8,9 +9,12 @@ import 'features/auth/presentation/views/login_view.dart';
 import 'features/auth/presentation/views/register_view.dart';
 import 'features/home/presentation/views/home_view.dart';
 
-void main() {
+Future<void> main() async {
   // Asegura que los bindings de Flutter estén inicializados antes de inyectar dependencias
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Cargamos las variables de entorno desde el archivo .env
+  await dotenv.load(fileName: ".env");
 
   // Inicializamos nuestro inyector de dependencias (GetIt)
   setupServiceLocator();
