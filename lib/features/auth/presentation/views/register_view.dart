@@ -218,7 +218,17 @@ class _RegisterViewState extends State<RegisterView> {
                               onPressed: () => setState(
                                       () => _obscurePassword = !_obscurePassword),
                             ),
-                            validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Requerido';
+                              if (v.length < 8) return 'Mínimo 8 caracteres';
+                              final hasLetter = v.contains(RegExp(r'[a-zA-Z]'));
+                              final hasDigit = v.contains(RegExp(r'[0-9]'));
+                              if (!hasLetter || !hasDigit) {
+                                return 'Debe tener al menos una letra y un número';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) => setState(() {}),
                           ),
 
                           const SizedBox(height: 16),
@@ -416,10 +426,23 @@ class _PasswordStrengthIndicator extends StatelessWidget {
 
   const _PasswordStrengthIndicator({required this.password});
 
+  /// Evalúa fortaleza según las reglas reales de la API:
+  /// - mínimo 8 caracteres
+  /// - al menos una letra
+  /// - al menos un dígito
   int get _strength {
     if (password.isEmpty) return 0;
-    if (password.length < 6) return 1;
-    if (password.length < 10) return 2;
+
+    final hasLetter = password.contains(RegExp(r'[a-zA-Z]'));
+    final hasDigit = password.contains(RegExp(r'[0-9]'));
+
+    // No cumple requisitos mínimos
+    if (password.length < 8 || !hasLetter || !hasDigit) return 1;
+
+    // Cumple mínimos pero corta
+    if (password.length < 12) return 2;
+
+    // Cumple mínimos y es larga
     return 3;
   }
 
@@ -536,6 +559,7 @@ class _TintaField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
   final String? Function(String?)? validator;
+  final void Function(String)? onChanged;
 
   const _TintaField({
     required this.controller,
@@ -546,6 +570,7 @@ class _TintaField extends StatelessWidget {
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
     this.validator,
+    this.onChanged,
   });
 
   @override
@@ -556,6 +581,7 @@ class _TintaField extends StatelessWidget {
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
       validator: validator,
+      onChanged: onChanged,
       style: const TextStyle(
         fontFamily: 'DMSans',
         fontSize: 15,

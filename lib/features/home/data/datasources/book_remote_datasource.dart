@@ -20,8 +20,7 @@ class BookRemoteDataSource {
     final apiKey = dotenv.env['GOOGLE_BOOKS_API_KEY'] ?? '';
 
     // 2. Armamos la URL completa sumando la ruta, los parámetros y la clave al final
-    final url = '$_baseUrl?q=$encodedQuery&startIndex=$startIndex&maxResults=$maxResults&key=$apiKey';
-
+    final url = '$_baseUrl?q=$encodedQuery&filter=free-ebooks&startIndex=$startIndex&maxResults=$maxResults&key=$apiKey';
     try {
       final responseData = await _apiClient.get(url);
       return GoogleBookModel.fromGoogleApiJson(responseData);

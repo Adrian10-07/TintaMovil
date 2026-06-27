@@ -1,4 +1,4 @@
-package com.example.tinta
+package com.SoftDev.tinta
 
 import io.flutter.embedding.android.FlutterActivity
 
