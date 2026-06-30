@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fllama/fllama.dart';
-import 'package:fllama/fllama_type.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
@@ -66,15 +65,16 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
 
       final result = await Fllama.instance()!.initContext(
         path,
+        emitLoadProgress: true,
         nCtx: _contextSize,
         nGpuLayers: 0,
       );
 
-      if (result == null || !result.containsKey('id')) {
+      if (result == null || !result.containsKey('contextId')) {
         throw Exception('Failed to initialize model context');
       }
 
-      _contextId = (result['id'] as num).toDouble();
+      _contextId = (result['contextId'] as num).toDouble();
       _isReady = true;
 
       _statusController.add(
@@ -139,6 +139,39 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
     }
   }
 
+  /// Construye el prompt usando el chat template de Gemma 2.
+  /// Evitamos llamar getFormattedChat() porque tiene un bug en el código
+  /// nativo Kotlin (ClassCastException: ArrayList cannot be cast to HashMap[]).
+  String _buildGemmaPrompt({
+    required String systemPrompt,
+    required List<ChatMessage> history,
+  }) {
+    final buffer = StringBuffer();
+
+    // Gemma 2 incluye el system prompt dentro del primer turno de usuario.
+    // Formato: <start_of_turn>user\n{system}\n\n{mensaje}<end_of_turn>
+    final userMessages = history.where((m) => !m.isSystem).toList();
+
+    for (int i = 0; i < userMessages.length; i++) {
+      final m = userMessages[i];
+      if (m.isUser) {
+        buffer.write('<start_of_turn>user\n');
+        // Inyectar system prompt solo en el primer mensaje del usuario
+        if (i == 0 && systemPrompt.isNotEmpty) {
+          buffer.write('$systemPrompt\n\n');
+        }
+        buffer.write('${m.content}<end_of_turn>\n');
+      } else {
+        buffer.write('<start_of_turn>model\n');
+        buffer.write('${m.content}<end_of_turn>\n');
+      }
+    }
+
+    // Turno del modelo sin cerrar → el LLM completa desde aquí
+    buffer.write('<start_of_turn>model\n');
+    return buffer.toString();
+  }
+
   @override
   Stream<String> generate({
     required String systemPrompt,
@@ -151,40 +184,45 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
     }
 
     final fllama = Fllama.instance()!;
-    final messages = <RoleContent>[
-      RoleContent(role: 'system', content: systemPrompt),
-      for (final m in history.where((m) => !m.isSystem))
-        RoleContent(
-          role: m.isUser ? 'user' : 'assistant',
-          content: m.content,
-        ),
-    ];
 
-    final prompt = await fllama.getFormattedChat(
-      _contextId!,
-      messages: messages,
+    // Construimos el prompt manualmente en Dart (evitamos el bug de getFormattedChat)
+    final prompt = _buildGemmaPrompt(
+      systemPrompt: systemPrompt,
+      history: history,
     );
-
-    if (prompt == null || prompt.isEmpty) {
-      throw Exception('Failed to format chat prompt');
-    }
 
     final controller = StreamController<String>();
     StreamSubscription<Map<Object?, dynamic>>? sub;
 
     sub = fllama.onTokenStream?.listen(
       (event) {
-        final eventCtx = (event['contextId'] as num?)?.toDouble();
-        if (eventCtx != _contextId) return;
+        final function = event['function'] as String?;
 
-        if (event['done'] == true) {
-          sub?.cancel();
-          controller.close();
-        } else {
-          final token = event['token'] as String? ??
-              event['text'] as String?;
-          if (token != null && token.isNotEmpty) {
-            controller.add(token);
+        if (function == 'completion') {
+          final result = event['result'] as Map?;
+          if (result == null) return;
+
+          final isDone = result['stop'] == true ||
+              result['stopped_eos'] == true ||
+              result['stopped_limit'] == true;
+
+          if (isDone) {
+            sub?.cancel();
+            if (!controller.isClosed) controller.close();
+          } else {
+            final token = result['token'] as String?;
+            if (token != null && token.isNotEmpty) {
+              // Filtramos el token de fin de turno si aparece en el stream
+              if (!token.contains('<end_of_turn>')) {
+                controller.add(token);
+              } else {
+                // Emitir solo la parte antes del token especial
+                final clean = token.split('<end_of_turn>').first;
+                if (clean.isNotEmpty) controller.add(clean);
+                sub?.cancel();
+                if (!controller.isClosed) controller.close();
+              }
+            }
           }
         }
       },
@@ -213,7 +251,8 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
   Future<void> dispose() async {
     await _tokenSubscription?.cancel();
     if (_contextId != null) {
-      Fllama.instance()?.releaseContext(_contextId!);
+      Fllama.instance()?.releaseAllContexts();
+      _contextId = null;
     }
     await _statusController.close();
   }
