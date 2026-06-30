@@ -8,20 +8,7 @@ class BookRepositoryImpl implements BookRepository {
   BookRepositoryImpl(this.remoteDataSource);
 
   @override
-  Future<List<Book>> getBooksCatalog({
-    required String query,
-    required int startIndex,
-    required int maxResults,
-  }) async {
-    try {
-      return await remoteDataSource.fetchGoogleBooks(
-        query: query,
-        startIndex: startIndex,
-        maxResults: maxResults,
-      );
-    } catch (e) {
-      // Manejo y tipado de errores de infraestructura a nivel de dominio
-      rethrow;
-    }
+  Future<List<Book>> getBooksCatalog({String? category}) async {
+    return await remoteDataSource.fetchCatalog(category: category);
   }
 }

@@ -3,10 +3,6 @@ import 'package:tinta/core/ui/theme3material/theme.dart';
 import '../../domain/entities/book.dart';
 import '../../../../core/presentation/components/tinta_background.dart';
 
-/// Pantalla de detalle de un libro.
-///
-/// Si el libro es legible (isReadable), muestra botón para abrir el lector in-app.
-/// Si no, muestra un aviso de contenido no disponible.
 class BookDetailView extends StatelessWidget {
   const BookDetailView({Key? key}) : super(key: key);
 
@@ -37,7 +33,6 @@ class BookDetailView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Título
                     Text(book.title, style: textTheme.headlineMedium),
                     const SizedBox(height: 8),
                     Text(
@@ -48,28 +43,37 @@ class BookDetailView extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // Chips de info
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
                         _InfoChip(
-                          icon: book.isFullAccess
-                              ? Icons.lock_open_rounded
-                              : Icons.visibility_rounded,
-                          label: book.accessLabel,
-                          highlight: book.isFullAccess,
+                          icon: Icons.lock_open_rounded,
+                          label: 'EPUB disponible',
+                          highlight: true,
                         ),
-                        if (book.pageCount > 0)
-                          _InfoChip(
-                            icon: Icons.menu_book_rounded,
-                            label: '${book.pageCount} páginas',
-                          ),
+                        _InfoChip(
+                          icon: book.category == 'Estudio' || book.category == 'Ciencia' || book.category == 'Filosofía'
+                              ? Icons.school_rounded
+                              : Icons.menu_book_rounded,
+                          label: book.category,
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 16),
 
-                    // Sinopsis
+                    if (book.subjects.isNotEmpty) ...[
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: book.subjects
+                            .map((s) => _SubjectTag(label: s))
+                            .toList(),
+                      ),
+                      const SizedBox(height: 28),
+                    ] else
+                      const SizedBox(height: 28),
+
                     if (book.description != null && book.description!.isNotEmpty) ...[
                       Text('Sinopsis', style: textTheme.titleLarge),
                       const SizedBox(height: 12),
@@ -83,28 +87,20 @@ class BookDetailView extends StatelessWidget {
                       const SizedBox(height: 32),
                     ],
 
-                    // ── Botón principal ───────────────────────────────
-                    if (book.isReadable)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              '/reader',
-                              arguments: book,
-                            );
-                          },
-                          icon: const Icon(Icons.auto_stories_rounded),
-                          label: Text(
-                            book.isFullAccess
-                                ? 'Leer libro completo'
-                                : 'Leer vista previa',
-                          ),
-                        ),
-                      )
-                    else
-                      _NoPreviewCard(),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/reader',
+                            arguments: book,
+                          );
+                        },
+                        icon: const Icon(Icons.auto_stories_rounded),
+                        label: const Text('Leer libro completo'),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -115,10 +111,6 @@ class BookDetailView extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-widgets
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _BackButton extends StatelessWidget {
   @override
@@ -169,8 +161,11 @@ class _BookCover extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: book.thumbnailUrl != null
-                  ? Image.network(book.thumbnailUrl!, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _CoverPlaceholder(title: book.title))
+                  ? Image.network(
+                book.thumbnailUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _CoverPlaceholder(title: book.title),
+              )
                   : _CoverPlaceholder(title: book.title),
             ),
           ),
@@ -183,6 +178,7 @@ class _BookCover extends StatelessWidget {
 class _CoverPlaceholder extends StatelessWidget {
   final String title;
   const _CoverPlaceholder({required this.title});
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -191,8 +187,12 @@ class _CoverPlaceholder extends StatelessWidget {
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text(title, textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(color: cs.onPrimaryContainer)),
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleSmall
+                ?.copyWith(color: cs.onPrimaryContainer),
+          ),
         ),
       ),
     );
@@ -204,6 +204,7 @@ class _InfoChip extends StatelessWidget {
   final String label;
   final bool highlight;
   const _InfoChip({required this.icon, required this.label, this.highlight = false});
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -216,29 +217,37 @@ class _InfoChip extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 16, color: highlight ? cs.primary : cs.onSurface.withOpacity(0.55)),
         const SizedBox(width: 6),
-        Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: highlight ? cs.onPrimaryContainer : cs.onSurface.withOpacity(0.70),
-          fontWeight: highlight ? FontWeight.w700 : FontWeight.w400,
-        )),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: highlight ? cs.onPrimaryContainer : cs.onSurface.withOpacity(0.70),
+            fontWeight: highlight ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
       ]),
     );
   }
 }
 
-class _NoPreviewCard extends StatelessWidget {
+class _SubjectTag extends StatelessWidget {
+  final String label;
+  const _SubjectTag({required this.label});
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: cs.surfaceContainerLow, borderRadius: BorderRadius.circular(16)),
-      child: Column(children: [
-        Icon(Icons.menu_book_rounded, size: 40, color: cs.onSurface.withOpacity(0.25)),
-        const SizedBox(height: 10),
-        Text('Contenido no disponible para este libro',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurface.withOpacity(0.45))),
-      ]),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: cs.onSecondaryContainer,
+        ),
+      ),
     );
   }
 }

@@ -1,31 +1,23 @@
-import '../../../../core/network/http_client.dart';
-import '../models/google_book_model.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
+import '../models/curated_book_model.dart';
 import '../../domain/entities/book.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class BookRemoteDataSource {
-  final ApiClient _apiClient;
-  final String _baseUrl = 'https://www.googleapis.com/books/v1/volumes';
+  /// Carga el catálogo curado desde assets/data/curated_catalog.json
+  /// Este archivo vive localmente en el proyecto Flutter — no requiere
+  /// red ni depende de ninguna API externa de búsqueda. La descarga del
+  /// EPUB real sí va a internet (a standardebooks.org), pero la lista
+  /// de qué libros existen y sus metadatos los mantienes tú mismo.
+  Future<List<Book>> fetchCatalog({String? category}) async {
+    final jsonString =
+    await rootBundle.loadString('assets/data/curated_catalog.json');
+    final Map<String, dynamic> jsonData = json.decode(jsonString);
+    final allBooks = CuratedBookModel.fromCatalogJson(jsonData);
 
-  BookRemoteDataSource(this._apiClient);
-
-  Future<List<Book>> fetchGoogleBooks({
-    required String query,
-    required int startIndex,
-    required int maxResults,
-  }) async {
-    final encodedQuery = Uri.encodeComponent(query);
-
-    // 1. Obtenemos la clave de forma segura del .env
-    final apiKey = dotenv.env['GOOGLE_BOOKS_API_KEY'] ?? '';
-
-    // 2. Armamos la URL completa sumando la ruta, los parámetros y la clave al final
-    final url = '$_baseUrl?q=$encodedQuery&filter=free-ebooks&startIndex=$startIndex&maxResults=$maxResults&key=$apiKey';
-    try {
-      final responseData = await _apiClient.get(url);
-      return GoogleBookModel.fromGoogleApiJson(responseData);
-    } catch (e) {
-      rethrow;
+    if (category == null || category == 'Todos') {
+      return allBooks;
     }
+    return allBooks.where((b) => b.category == category).toList();
   }
 }

@@ -1,49 +1,34 @@
 class Book {
-  final String id;
+  final String id;            // identificador único, ej. "mary-shelley_frankenstein"
   final String title;
   final List<String> authors;
   final String? description;
   final String? thumbnailUrl;
-  final String? previewLink;
+  final String category;      // categoría que TÚ asignas al curar el libro
+  final List<String> subjects;
 
-  // ── Campos de lectura
-  final String? webReaderLink;
-  final String viewability; // ALL_PAGES, PARTIAL, NO_PAGES, UNKNOWN
-  final bool embeddable;
-  final int pageCount;
+  // IMPORTANTE: la URL de descarga se guarda completa y verificada,
+  // NO se reconstruye a partir de slugs. Algunos libros de Standard Ebooks
+  // tienen un segmento extra de traductor en la URL
+  // (ej. niccolo-machiavelli/the-prince/w-k-marriott), así que una fórmula
+  // fija de "autor/libro" no es universal. Cada URL debe verificarse
+  // manualmente una vez al curar el catálogo.
+  final String epubUrl;
+  final String pageUrl;
 
   Book({
     required this.id,
     required this.title,
     required this.authors,
+    required this.epubUrl,
+    required this.pageUrl,
     this.description,
     this.thumbnailUrl,
-    this.previewLink,
-    this.webReaderLink,
-    this.viewability = 'UNKNOWN',
-    this.embeddable = false,
-    this.pageCount = 0,
+    this.category = 'General',
+    this.subjects = const [],
   });
 
-  /// ¿Se puede leer (al menos parcialmente) en el visor?
-  bool get isReadable =>
-      webReaderLink != null &&
-          (viewability == 'ALL_PAGES' || viewability == 'PARTIAL');
-
-  /// ¿Es dominio público con acceso completo?
-  bool get isFullAccess => viewability == 'ALL_PAGES';
-
-  /// Etiqueta legible del nivel de acceso.
-  String get accessLabel {
-    switch (viewability) {
-      case 'ALL_PAGES':
-        return 'Libro completo';
-      case 'PARTIAL':
-        return 'Vista previa';
-      case 'NO_PAGES':
-        return 'Sin preview';
-      default:
-        return 'Desconocido';
-    }
-  }
+  /// Standard Ebooks siempre publica el EPUB — si está en la lista curada
+  /// con su URL verificada, ya sabemos que existe y es descargable.
+  bool get isReadable => true;
 }

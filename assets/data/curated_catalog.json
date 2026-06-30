@@ -1,0 +1,44 @@
+{
+  "books": [
+    {
+      "id": "charles-darwin_the-origin-of-species",
+      "title": "On the Origin of Species",
+      "authors": ["Charles Darwin"],
+      "description": "Darwin's foundational work on evolution by natural selection.",
+      "category": "Ciencia",
+      "subjects": ["Science", "Biology"],
+      "pageUrl": "https://standardebooks.org/ebooks/charles-darwin/the-origin-of-species",
+      "epubUrl": "https://standardebooks.org/ebooks/charles-darwin/the-origin-of-species/downloads/charles-darwin_the-origin-of-species.epub"
+    },
+    {
+      "id": "mary-shelley_frankenstein",
+      "title": "Frankenstein",
+      "authors": ["Mary Shelley"],
+      "description": "A scientist creates a sentient creature with tragic consequences. Considered by many the first science fiction novel.",
+      "category": "Lectura",
+      "subjects": ["Horror", "Science Fiction"],
+      "pageUrl": "https://standardebooks.org/ebooks/mary-shelley/frankenstein",
+      "epubUrl": "https://standardebooks.org/ebooks/mary-shelley/frankenstein/downloads/mary-shelley_frankenstein.epub"
+    },
+    {
+      "id": "niccolo-machiavelli_the-prince",
+      "title": "The Prince",
+      "authors": ["Niccolò Machiavelli"],
+      "description": "A treatise on political philosophy and the acquisition of power, translated by W. K. Marriott.",
+      "category": "Filosofía",
+      "subjects": ["Philosophy", "Politics"],
+      "pageUrl": "https://standardebooks.org/ebooks/niccolo-machiavelli/the-prince/w-k-marriott",
+      "epubUrl": "https://standardebooks.org/ebooks/niccolo-machiavelli/the-prince/w-k-marriott/downloads/niccolo-machiavelli_the-prince_w-k-marriott.epub"
+    },
+    {
+      "id": "adam-smith_the-wealth-of-nations",
+      "title": "The Wealth of Nations",
+      "authors": ["Adam Smith"],
+      "description": "The foundational text of classical economics.",
+      "category": "Estudio",
+      "subjects": ["Economics"],
+      "pageUrl": "https://standardebooks.org/ebooks/adam-smith/the-wealth-of-nations",
+      "epubUrl": "https://standardebooks.org/ebooks/adam-smith/the-wealth-of-nations/downloads/adam-smith_the-wealth-of-nations.epub"
+    }
+  ]
+}

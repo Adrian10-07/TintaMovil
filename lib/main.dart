@@ -66,7 +66,7 @@ class TintaApp extends StatelessWidget {
               ),
               '/home': (ctx) => HomeView(
                 viewModel: ctx.read<HomeViewModel>(),
-                defaultQuery: 'Ingeniería de software',
+                defaultQuery:'',
               ),
               '/book-detail': (_) => const BookDetailView(),
               '/reader': (_) => const ReaderView(),

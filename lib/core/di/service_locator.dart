@@ -47,7 +47,7 @@ void setupServiceLocator() {
 
   // ── HOME ─────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<BookRemoteDataSource>(
-        () => BookRemoteDataSource(sl()),
+        () => BookRemoteDataSource(),
   );
   sl.registerLazySingleton<BookRepository>(
         () => BookRepositoryImpl(sl()),
