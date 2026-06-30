@@ -11,6 +11,11 @@ import '../viewmodels/upload_book_viewmodel.dart';
 
 import '../../../document_viewer/presentation/views/pdf_results_view.dart';
 
+import '../components/recommendations_header.dart';
+import '../components/upload_dropzone.dart';
+import '../components/recent_document.dart';
+import '../components/recent_documents_section.dart';
+
 /// Vista "Sube un libro" — el usuario elige un PDF y, al subirlo, el motor
 /// ML (Go) genera recomendaciones basadas en su contenido.
 ///
@@ -64,6 +69,11 @@ class _UploadBookViewState extends State<UploadBookView> {
     await _viewModel.generate(userId: widget.userId, questions: preguntas);
   }
 
+  void _onChatTap(RecentDocument document) {
+    // Placeholder: navegación a chat por documento, pendiente de
+    // implementar cuando exista persistencia real de documentos.
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -86,21 +96,34 @@ class _UploadBookViewState extends State<UploadBookView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Header(onBack: () => Navigator.maybePop(context)),
+                RecommendationsHeader(
+                  onBack: () => Navigator.maybePop(context),
+                ),
                 Expanded(
                   child: Consumer<UploadBookViewModel>(
                     builder: (context, vm, _) => SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _PdfPicker(vm: vm, onPick: _pickPdf),
+                          UploadDropzone(
+                            onTap: _pickPdf,
+                            hasSelection: vm.selectedFile != null,
+                            selectedFileName: vm.selectedFile != null
+                                ? vm.selectedFile!.path.split('/').last
+                                : '',
+                          ),
                           const SizedBox(height: 20),
                           _QuestionField(controller: _questionController),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 16),
                           _GenerateButton(vm: vm, onTap: _generate),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 12),
                           _ResultArea(vm: vm, onDone: widget.onDone),
+                          const SizedBox(height: 28),
+                          RecentDocumentsSection(
+                            documents: mockRecentDocuments,
+                            onChatTap: _onChatTap,
+                          ),
                         ],
                       ),
                     ),
@@ -108,102 +131,6 @@ class _UploadBookViewState extends State<UploadBookView> {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Header
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-            onPressed: onBack,
-          ),
-          const SizedBox(width: 4),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Sube un libro', style: textTheme.titleLarge),
-              Text(
-                'Te recomendamos lecturas afines',
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface.withOpacity(0.50),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Selector de PDF
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _PdfPicker extends StatelessWidget {
-  final UploadBookViewModel vm;
-  final VoidCallback onPick;
-  const _PdfPicker({required this.vm, required this.onPick});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final file = vm.selectedFile;
-
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onPick,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Icon(
-                file != null
-                    ? Icons.picture_as_pdf_rounded
-                    : Icons.upload_file_rounded,
-                size: 40,
-                color: colorScheme.primary,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                file != null ? file.path.split('/').last : 'Toca para elegir un PDF',
-                style: textTheme.titleSmall,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (file == null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'El libro o capítulo que quieras explorar',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withOpacity(0.50),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
           ),
         ),
       ),
@@ -225,7 +152,7 @@ class _QuestionField extends StatelessWidget {
       controller: controller,
       decoration: const InputDecoration(
         labelText: '¿Qué te interesa de este libro? (opcional)',
-        hintText: 'Ej. cuantos huesos tiene el craneo',
+        hintText: 'Ej. cuántos huesos tiene el cráneo',
         border: OutlineInputBorder(),
       ),
       maxLines: 2,
@@ -279,7 +206,6 @@ class _ResultArea extends StatelessWidget {
 
     switch (vm.state) {
       case UploadState.success:
-      // Navega automáticamente a la vista de resultados (PDF + recomendaciones)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted && vm.selectedFile != null) {
             Navigator.pushReplacement(

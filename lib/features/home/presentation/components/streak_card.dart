@@ -1,14 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tinta/core/ui/theme3material/theme.dart';
 
-/// Tarjeta de racha de lectura gamificada.
-///
-/// Muestra:
-/// - Cabecera con 🔥 + título + contador de días en chip dorado
-/// - Fila de 7 burbujas de días (✓ dorado para completados)
-///
-/// Por ahora es UI decorativa. Cuando el viewmodel exponga
-/// datos de racha, reemplazar [streakDays] y [completedDayIndices].
+
 class StreakCard extends StatelessWidget {
   final int streakDays;
   final List<int> completedDayIndices;
@@ -35,7 +28,7 @@ class StreakCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Cabecera ────────────────────────────────────────
+          //Cabecera
           Row(
             children: [
               const Text('🔥', style: TextStyle(fontSize: 22)),
@@ -68,7 +61,7 @@ class StreakCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // ── Burbujas de días ─────────────────────────────────
+          //Burbujas de días
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(7, (i) {

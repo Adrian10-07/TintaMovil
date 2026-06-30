@@ -39,6 +39,66 @@
       "subjects": ["Economics"],
       "pageUrl": "https://standardebooks.org/ebooks/adam-smith/the-wealth-of-nations",
       "epubUrl": "https://standardebooks.org/ebooks/adam-smith/the-wealth-of-nations/downloads/adam-smith_the-wealth-of-nations.epub"
+    },
+    {
+      "id": "marcus-aurelius_meditations",
+      "title": "Meditations",
+      "authors": ["Marcus Aurelius"],
+      "description": "Personal writings of the Roman emperor on Stoic philosophy, written as notes to himself.",
+      "category": "Filosofía",
+      "subjects": ["Philosophy", "Stoicism"],
+      "pageUrl": "https://standardebooks.org/ebooks/marcus-aurelius/meditations/george-long",
+      "epubUrl": "https://standardebooks.org/ebooks/marcus-aurelius/meditations/george-long/downloads/marcus-aurelius_meditations_george-long.epub"
+    },
+    {
+      "id": "plato_dialogues",
+      "title": "Dialogues",
+      "authors": ["Plato"],
+      "description": "A collection of Plato's philosophical dialogues, including the Apology, Phaedo, and the Republic, translated by Benjamin Jowett.",
+      "category": "Filosofía",
+      "subjects": ["Philosophy", "Classical Philosophy"],
+      "pageUrl": "https://standardebooks.org/ebooks/plato/dialogues/benjamin-jowett",
+      "epubUrl": "https://standardebooks.org/ebooks/plato/dialogues/benjamin-jowett/downloads/plato_dialogues_benjamin-jowett.epub"
+    },
+    {
+      "id": "epictetus_discourses",
+      "title": "Discourses",
+      "authors": ["Epictetus"],
+      "description": "Stoic teachings on ethics and how to live a virtuous life, compiled by his student Arrian.",
+      "category": "Filosofía",
+      "subjects": ["Philosophy", "Stoicism"],
+      "pageUrl": "https://standardebooks.org/ebooks/epictetus/discourses/george-long",
+      "epubUrl": "https://standardebooks.org/ebooks/epictetus/discourses/george-long/downloads/epictetus_discourses_george-long.epub"
+    },
+    {
+      "id": "augustine-of-hippo_the-city-of-god",
+      "title": "The City of God",
+      "authors": ["Augustine of Hippo"],
+      "description": "A foundational work of Christian philosophy and political theory, written after the fall of Rome.",
+      "category": "Filosofía",
+      "subjects": ["Philosophy", "Theology", "History"],
+      "pageUrl": "https://standardebooks.org/ebooks/augustine-of-hippo/the-city-of-god/marcus-dods_george-wilson_j-j-smith",
+      "epubUrl": "https://standardebooks.org/ebooks/augustine-of-hippo/the-city-of-god/marcus-dods_george-wilson_j-j-smith/downloads/augustine-of-hippo_the-city-of-god_marcus-dods_george-wilson_j-j-smith.epub"
+    },
+    {
+      "id": "jane-austen_pride-and-prejudice",
+      "title": "Pride and Prejudice",
+      "authors": ["Jane Austen"],
+      "description": "A classic novel of manners exploring love and social class in Regency England.",
+      "category": "Lectura",
+      "subjects": ["Fiction", "Romance"],
+      "pageUrl": "https://standardebooks.org/ebooks/jane-austen/pride-and-prejudice",
+      "epubUrl": "https://standardebooks.org/ebooks/jane-austen/pride-and-prejudice/downloads/jane-austen_pride-and-prejudice.epub"
+    },
+    {
+      "id": "arthur-conan-doyle_the-adventures-of-sherlock-holmes",
+      "title": "The Adventures of Sherlock Holmes",
+      "authors": ["Arthur Conan Doyle"],
+      "description": "The classic detective story collection featuring Sherlock Holmes and Dr. Watson.",
+      "category": "Lectura",
+      "subjects": ["Mystery", "Fiction"],
+      "pageUrl": "https://standardebooks.org/ebooks/arthur-conan-doyle/the-adventures-of-sherlock-holmes",
+      "epubUrl": "https://standardebooks.org/ebooks/arthur-conan-doyle/the-adventures-of-sherlock-holmes/downloads/arthur-conan-doyle_the-adventures-of-sherlock-holmes.epub"
     }
   ]
 }
