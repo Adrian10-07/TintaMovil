@@ -8,7 +8,8 @@ import 'package:tinta/core/presentation/components/tinta_background.dart';
 
 import '../../data/datasources/recommendation_upload_datasource.dart';
 import '../viewmodels/upload_book_viewmodel.dart';
-import 'pdf_results_view.dart';
+
+import '../../../document_viewer/presentation/views/pdf_results_view.dart';
 
 /// Vista "Sube un libro" — el usuario elige un PDF y, al subirlo, el motor
 /// ML (Go) genera recomendaciones basadas en su contenido.
