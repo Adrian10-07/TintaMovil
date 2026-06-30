@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tinta/core/ui/theme3material/theme.dart';
 
-/// AppBar personalizado de la pantalla Home.
-///
-/// Muestra avatar con gradiente, saludo contextual, botón de subir libro
-/// (genera recomendaciones por PDF), botón de ver recomendaciones, y
-/// campana de notificaciones.
 class HomeAppBar extends StatelessWidget {
   final String greeting;
   final String title;
@@ -35,7 +30,6 @@ class HomeAppBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         children: [
-          // ── Avatar + saludo ────────────────────────────────
           _Avatar(initial: avatarInitial),
           const SizedBox(width: 12),
           Column(
@@ -52,7 +46,7 @@ class HomeAppBar extends StatelessWidget {
           ),
           const Spacer(),
 
-          // ── Botón: ver "Te puede interesar" ──────────────────
+          //Botón: recomendaciones
           if (onRecommendationsTap != null) ...[
             _IconButton(
               icon: Icons.auto_awesome_rounded,
@@ -61,7 +55,7 @@ class HomeAppBar extends StatelessWidget {
             const SizedBox(width: 10),
           ],
 
-          // ── Botón: subir libro (genera recomendaciones por PDF) ──
+          //Botón: subir libro
           if (onUploadTap != null) ...[
             _IconButton(
               icon: Icons.upload_file_rounded,
@@ -110,8 +104,7 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// Botón circular genérico (reusado por subir y por recomendaciones), mismo
-/// estilo visual que ya usaba la campana de notificaciones.
+/// Botón (reusado por subir y por recomendaciones)
 class _IconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;

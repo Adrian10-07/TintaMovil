@@ -1,62 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:epub_view/epub_view.dart';
+import '../../../home/domain/entities/book.dart';
 
-/// AppBar del lector: título + bookmark + menú.
+/// AppBar del lector: muestra título y autor del libro, y debajo
+/// (mientras se lee) el nombre del capítulo actual, usando el widget
+/// oficial EpubViewActualChapter de epub_view.
 class ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final String title;
-  final String subtitle;
-  final bool isBookmarked;
-  final VoidCallback onBookmarkTap;
-  final VoidCallback onBack;
+  final Book book;
+  final EpubController? controller;
 
-  const ReaderAppBar({
-    Key? key,
-    required this.title,
-    required this.subtitle,
-    required this.isBookmarked,
-    required this.onBookmarkTap,
-    required this.onBack,
-  }) : super(key: key);
+  const ReaderAppBar({Key? key, required this.book, required this.controller})
+      : super(key: key);
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 8);
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     return AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded),
-        onPressed: onBack,
-      ),
+      titleSpacing: 0,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            title,
-            style: textTheme.titleSmall,
+            book.title,
+            style: Theme.of(context).textTheme.titleSmall,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          Text(
-            subtitle,
-            style: textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.55),
+          if (controller != null)
+            EpubViewActualChapter(
+              controller: controller!,
+              builder: (chapterValue) {
+                final chapterTitle =
+                chapterValue?.chapter?.Title?.trim().replaceAll('\n', '');
+                return Text(
+                  chapterTitle?.isNotEmpty == true
+                      ? chapterTitle!
+                      : book.authors.join(', '),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurface.withOpacity(0.55),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                );
+              },
+            )
+          else
+            Text(
+              book.authors.join(', '),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.55),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
         ],
       ),
-      actions: [
-        IconButton(
-          icon: Icon(
-            isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-            color: isBookmarked ? colorScheme.tertiary : colorScheme.onSurface,
-          ),
-          onPressed: onBookmarkTap,
-        ),
-        const SizedBox(width: 4),
-      ],
     );
   }
 }

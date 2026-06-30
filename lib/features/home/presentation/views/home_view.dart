@@ -12,6 +12,8 @@ import '../../../../features/recommendations/presentation/views/upload_book_view
 import '../../../../features/recommendations/presentation/views/recommendations_view.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
+import '../components/currently_reading_book.dart';
+import '../components/currently_reading_section.dart';
 
 class HomeView extends StatefulWidget {
   final HomeViewModel viewModel;
@@ -93,8 +95,15 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _onNavTap(int index) {
-    if (index == 4) {
-      // Tab 'Yo' → navega a la pantalla de perfil
+    // Handle navigation for specific tabs
+    if (index == 1) {
+      // Explorar tab → navigate to recommendations
+      _onRecommendationsTap();
+    } else if (index == 2) {
+      // Estudio tab → navigate to upload book
+      _onUploadTap();
+    } else if (index == 4) {
+      // Yo tab → navigate to user profile
       Navigator.pushNamed(context, '/user');
       return;
     }
@@ -123,8 +132,6 @@ class _HomeViewState extends State<HomeView> {
             children: [
               HomeAppBar(
                 onNotificationTap: () {},
-                onUploadTap: _onUploadTap,
-                onRecommendationsTap: _onRecommendationsTap,
               ),
               Expanded(
                 child: ListenableBuilder(
@@ -198,6 +205,24 @@ class _CatalogContent extends StatelessWidget {
             child: StreakCard(),
           ),
         ),
+
+        // Carrusel horizontal "Leyendo actualmente" — scroll lateral
+        // independiente del scroll vertical de este CustomScrollView.
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 24),
+            child: CurrentlyReadingSection(
+              books: mockCurrentlyReading,
+              onSeeAllTap: () {
+                // pendiente: navegar a vista de "todos los en progreso"
+              },
+              onBookTap: (book) {
+                // pendiente: navegar al detalle/lector de ese libro
+              },
+            ),
+          ),
+        ),
+
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
