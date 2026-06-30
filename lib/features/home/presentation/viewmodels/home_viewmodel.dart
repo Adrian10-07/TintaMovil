@@ -65,5 +65,5 @@ class HomeViewModel extends ChangeNotifier {
 
   /// No-op: el catálogo curado no pagina. Se mantiene para que home_view.dart
   /// no necesite cambios en su listener de scroll.
-  Future<void> loadNextPage() async {}
+  Future<void> loadNextPage(String defaultQuery) async {}
 }
