@@ -154,7 +154,14 @@ class _MessagesListState extends State<_MessagesList> {
         if (i == widget.messages.length && widget.error != null) {
           return _ErrorBanner(error: widget.error!);
         }
-        return ChatMessageBubble(message: widget.messages[i]);
+        final msg = widget.messages[i];
+        // RepaintBoundary aísla cada burbuja en su propia capa de pintura.
+        // Cuando solo cambia el ÚLTIMO mensaje (streaming), las anteriores
+        // NO se repintan. Reduce paint time del ListView drásticamente.
+        return RepaintBoundary(
+          key: ValueKey(msg.id),
+          child: ChatMessageBubble(message: msg),
+        );
       },
     );
   }

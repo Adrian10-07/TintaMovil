@@ -68,7 +68,7 @@ class TutorChatViewModel extends ChangeNotifier {
     final clean = text.trim();
     if (clean.isEmpty || !canSend) return;
 
-    // 1. Agregar el mensaje del usuario al historial.
+    // 1. Agregar mensaje del usuario.
     final userMsg = ChatMessage(
       id: 'user-${DateTime.now().millisecondsSinceEpoch}',
       role: ChatRole.user,
@@ -77,7 +77,7 @@ class TutorChatViewModel extends ChangeNotifier {
     );
     _messages.add(userMsg);
 
-    // 2. Crear placeholder vacío del asistente que iremos llenando con tokens.
+    // 2. Placeholder del assistant.
     final assistantMsg = ChatMessage(
       id: 'assistant-${DateTime.now().millisecondsSinceEpoch}',
       role: ChatRole.assistant,
@@ -91,44 +91,60 @@ class TutorChatViewModel extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    // 3. Suscribirnos al stream de tokens y actualizar el mensaje en cada uno.
+    // 3. Batching: acumular tokens y notificar cada 60ms (~16 fps de updates,
+    // suficiente para que se vea fluido sin saturar el árbol de widgets).
     final buffer = StringBuffer();
+    Timer? batchTimer;
+    bool hasNewTokens = false;
+
+    void flushBuffer() {
+      if (!hasNewTokens) return;
+      final idx = _messages.length - 1;
+      _messages[idx] = _messages[idx].copyWith(content: buffer.toString());
+      notifyListeners();
+      hasNewTokens = false;
+    }
+
+    // Timer que vacía el buffer cada 60ms si hay nuevos tokens.
+    batchTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
+      flushBuffer();
+    });
 
     _generationSub = _repository
         .generateResponse(
-          history: _messages.where((m) => !m.isStreaming).toList(),
-          documentContext: documentContext,
-        )
+      history: _messages.where((m) => !m.isStreaming).toList(),
+      documentContext: documentContext,
+    )
         .listen(
           (token) {
-            buffer.write(token);
-            // Reemplazar el último mensaje (que es el placeholder del asistente)
-            // con uno nuevo que tiene el texto acumulado.
-            final idx = _messages.length - 1;
-            _messages[idx] = _messages[idx].copyWith(
-              content: buffer.toString(),
-            );
-            notifyListeners();
-          },
-          onDone: () {
-            // Marcar el mensaje como completo (sin streaming).
-            final idx = _messages.length - 1;
-            _messages[idx] = _messages[idx].copyWith(isStreaming: false);
-            _isGenerating = false;
-            notifyListeners();
-          },
-          onError: (err) {
-            _error = 'Error al generar respuesta: $err';
-            _isGenerating = false;
-            // Quitar el placeholder vacío.
-            if (_messages.isNotEmpty &&
-                _messages.last.isAssistant &&
-                _messages.last.content.isEmpty) {
-              _messages.removeLast();
-            }
-            notifyListeners();
-          },
+        buffer.write(token);
+        hasNewTokens = true;
+        // NO llamamos notifyListeners() aquí: el timer lo hace.
+      },
+      onDone: () {
+        batchTimer?.cancel();
+        flushBuffer(); // último flush por si quedaron tokens.
+
+        final idx = _messages.length - 1;
+        _messages[idx] = _messages[idx].copyWith(
+          content: buffer.toString(),
+          isStreaming: false,
         );
+        _isGenerating = false;
+        notifyListeners();
+      },
+      onError: (err) {
+        batchTimer?.cancel();
+        _error = 'Error al generar respuesta: $err';
+        _isGenerating = false;
+        if (_messages.isNotEmpty &&
+            _messages.last.isAssistant &&
+            _messages.last.content.isEmpty) {
+          _messages.removeLast();
+        }
+        notifyListeners();
+      },
+    );
   }
 
   /// Reintenta la descarga después de un fallo.
