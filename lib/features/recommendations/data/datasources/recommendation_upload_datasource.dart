@@ -24,7 +24,8 @@ class RecommendationUploadDataSource {
   //     'http://TU_IP_LOCAL:8090'   (ej. http://192.168.1.50:8090)
   // - Si lo subes a Railway (recomendado para la entrega):
   //     'https://tu-servicio-ml.up.railway.app'
-  static const String _baseUrl = 'https://tinta-recommendations-ml2-production-8d86.up.railway.app';
+  static const String _baseUrl = 'https://tinta-recommendations-ml2-production.up.railway.app';
+
   /// Sube [pdfFile] y dispara la generación. [questions] son opcionales.
   /// Devuelve cuántas recomendaciones nuevas se generaron.
   Future<int> generateFromPdf({
