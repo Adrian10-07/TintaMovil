@@ -18,7 +18,6 @@ import 'features/user/presentation/views/user_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
   setupServiceLocator();
   runApp(const TintaApp());
 }
