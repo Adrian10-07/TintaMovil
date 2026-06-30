@@ -8,6 +8,10 @@ import '../components/streak_card.dart';
 import '../components/book_card.dart';
 import '../components/tinta_bottom_nav.dart';
 import '../../../../features/home/domain/entities/book.dart';
+import '../../../../features/recommendations/presentation/views/upload_book_view.dart';
+import '../../../../features/recommendations/presentation/views/recommendations_view.dart';
+import '../../../../core/di/service_locator.dart';
+import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 
 class HomeView extends StatefulWidget {
   final HomeViewModel viewModel;
@@ -55,6 +59,39 @@ class _HomeViewState extends State<HomeView> {
     Navigator.pushNamed(context, '/book-detail', arguments: book);
   }
 
+  Future<void> _onUploadTap() async {
+    final userVm = sl<UserViewModel>();
+
+    // Si el perfil aún no se cargó en esta sesión, lo pedimos al backend.
+    if (userVm.profile == null) {
+      await userVm.loadProfile();
+    }
+
+    final userId = userVm.profile?.id;
+    if (userId == null || userId.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo identificar tu usuario. Inicia sesión de nuevo.')),
+      );
+      return;
+    }
+
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UploadBookView(userId: userId),
+      ),
+    );
+  }
+
+  void _onRecommendationsTap() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RecommendationsView()),
+    );
+  }
+
   void _onNavTap(int index) {
     if (index == 4) {
       // Tab 'Yo' → navega a la pantalla de perfil
@@ -86,6 +123,8 @@ class _HomeViewState extends State<HomeView> {
             children: [
               HomeAppBar(
                 onNotificationTap: () {},
+                onUploadTap: _onUploadTap,
+                onRecommendationsTap: _onRecommendationsTap,
               ),
               Expanded(
                 child: ListenableBuilder(
