@@ -4,16 +4,15 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 
 import '../../../recommendations/data/datasources/recommendation_remote_datasource.dart';
 import '../../../recommendations/domain/entities/recommendation.dart';
+import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
 import 'package:tinta/core/di/service_locator.dart';
 import 'package:tinta/core/network/http_client.dart';
 
 /// Vista del visor de documentos (feature: document_viewer).
 ///
-/// Por ahora muestra un PDF a pantalla completa con un panel deslizable de
-/// recomendaciones relacionadas. Este feature es el punto de partida para
-/// futuras capacidades sobre el documento abierto (ej. chat/asistente sobre
-/// el contenido, resaltado, anotaciones), por eso vive separado de
-/// `recommendations/` en vez de depender de él.
+/// Muestra un PDF a pantalla completa con:
+///   - Botón ✨ en el AppBar → abre el chat con Tinta AI (modo documento).
+///   - FAB → abre el panel de recomendaciones relacionadas.
 class PdfResultsView extends StatefulWidget {
   final File pdfFile;
 
@@ -44,14 +43,31 @@ class _PdfResultsViewState extends State<PdfResultsView> {
     }
   }
 
+  /// Nombre del archivo sin la ruta, para pasarlo al tutor como contexto.
+  String get _fileName =>
+      widget.pdfFile.path.split('/').last.split('\\').last;
+
+  void _openTutorChat() {
+    TutorChatSheet.show(
+      context,
+      documentContext: _fileName,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final fileName = widget.pdfFile.path.split('/').last.split('\\').last;
     final count = _items?.length;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(_fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          IconButton(
+            tooltip: 'Pregunta a Tinta AI',
+            icon: const Icon(Icons.auto_awesome_rounded),
+            onPressed: _openTutorChat,
+          ),
+        ],
       ),
       // ── El PDF ocupa toda la pantalla ──────────────────────────
       body: PDFView(
@@ -64,7 +80,7 @@ class _PdfResultsViewState extends State<PdfResultsView> {
       // ── Botón flotante para abrir el panel de recomendaciones ──
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openRecommendationsSheet(context),
-        icon: const Icon(Icons.auto_awesome_rounded),
+        icon: const Icon(Icons.menu_book_rounded),
         label: Text(
           count == null ? 'Te puede interesar' : 'Te puede interesar ($count)',
         ),
