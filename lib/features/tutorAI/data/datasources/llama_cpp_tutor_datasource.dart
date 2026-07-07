@@ -1,31 +1,31 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:fllama/fllama.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/model_download_status.dart';
 import 'tutor_llm_datasource.dart';
 
-class FllamaTutorDatasource implements TutorLlmDatasource {
+class LlamaCppTutorDatasource implements TutorLlmDatasource {
   static const String _modelUrl =
-      'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf';
-  static const String _modelFileName = 'gemma-2-2b-it-q4_k_m.gguf';
+      'https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q4_K_M.gguf';
+  static const String _modelFileName = 'google_gemma-3-1b-it-Q4_K_M.gguf';
 
-  static const int _contextSize = 1024;
-  static const int _maxTokens = 384;
+  static const int _contextSize = 2048;
   static const double _temperature = 0.7;
   static const double _topP = 0.9;
 
   final StreamController<ModelDownloadStatus> _statusController =
       StreamController<ModelDownloadStatus>.broadcast();
 
-  double? _contextId;
+  LlamaParent? _llamaParent;
   bool _isReady = false;
   bool _isInitializing = false;
-  StreamSubscription<Map<Object?, dynamic>>? _tokenSubscription;
+  StreamSubscription<String>? _tokenSubscription;
+  StreamController<String>? _generateController;
 
   @override
   Stream<ModelDownloadStatus> get statusStream => _statusController.stream;
@@ -46,16 +46,43 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
         const ModelDownloadStatus(stage: ModelDownloadStage.checking),
       );
 
+      final dir = await getApplicationDocumentsDirectory();
+      final oldModelFile = File('${dir.path}/gemma-2-2b-it-q4_k_m.gguf');
+      if (await oldModelFile.exists()) {
+        // Eliminando modelo anterior de Gemma 2 2B...
+        await oldModelFile.delete();
+      }
+      final oldPartialFile = File('${dir.path}/gemma-2-2b-it-q4_k_m.gguf.partial');
+      if (await oldPartialFile.exists()) {
+        await oldPartialFile.delete();
+      }
+
       final path = await _resolveModelPath();
       final file = File(path);
 
       if (!await file.exists()) {
         await _downloadModel(path);
       } else {
-        final size = await file.length();
-        if (size < 500 * 1024 * 1024) {
-          await file.delete();
-          await _downloadModel(path);
+        final client = http.Client();
+        try {
+          final headReq = await client.head(Uri.parse(_modelUrl));
+          final expectedSize = int.tryParse(headReq.headers['content-length'] ?? '0') ?? 0;
+          if (expectedSize > 0) {
+            final size = await file.length();
+            if (size != expectedSize) {
+              // Modelo corrupto. Redescargando...
+              await file.delete();
+              await _downloadModel(path);
+            }
+          }
+        } catch (e) {
+          final size = await file.length();
+          if (size < 500 * 1024 * 1024) {
+            await file.delete();
+            await _downloadModel(path);
+          }
+        } finally {
+          client.close();
         }
       }
 
@@ -63,42 +90,37 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
         const ModelDownloadStatus(stage: ModelDownloadStage.loading),
       );
 
-      Map<Object?, dynamic>? result;
-      int gpuLayersUsed = 0;
+      // Cargando modelo con llama_cpp_dart...
+      
+      final modelParams = ModelParams()..nGpuLayers = 0;
+      final contextParams = ContextParams()..nCtx = _contextSize;
+      final samplingParams = SamplerParams()
+        ..temp = _temperature
+        ..topP = _topP;
 
-// Intento 1: con GPU (99 = todas las capas en GPU).
-      try {
-        print('[Tutor] Intentando cargar con GPU...');
-        result = await Fllama.instance()!.initContext(
-          path,
-          nCtx: _contextSize,
-          nGpuLayers: 99,
-        );
-        gpuLayersUsed = 99;
-        print('[Tutor] ✅ GPU OK');
-      } catch (e) {
-        print('[Tutor] ⚠️ GPU falló: $e. Cayendo a CPU.');
-      }
+      final loadCommand = LlamaLoad(
+        path: path,
+        modelParams: modelParams,
+        contextParams: contextParams,
+        samplingParams: samplingParams,
+      );
 
-// Intento 2 (fallback): CPU puro.
-      if (result == null || !result.containsKey('contextId')) {
-        print('[Tutor] Cargando con CPU...');
-        result = await Fllama.instance()!.initContext(
-          path,
-          nCtx: _contextSize,
-          nGpuLayers: 0,
-        );
-        gpuLayersUsed = 0;
-      }
+      _llamaParent = LlamaParent(loadCommand);
+      await _llamaParent!.init();
 
-      if (result == null || !result.containsKey('contextId')) {
-        throw Exception('Failed to initialize model context. Got: $result');
-      }
+      _tokenSubscription = _llamaParent!.stream.listen(
+        (response) {
+          if (response == '[DONE]') {
+            // Placeholder for done condition
+          } else {
+            _generateController?.add(response);
+          }
+        },
+        onDone: () => _generateController?.close(),
+        onError: (e) => _generateController?.addError(e),
+      );
 
-      _contextId = (result['contextId'] as num).toDouble();
-      print('[Tutor] Modelo cargado. GPU layers: $gpuLayersUsed');
       _isReady = true;
-
       _statusController.add(
         const ModelDownloadStatus(stage: ModelDownloadStage.ready),
       );
@@ -115,22 +137,8 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
     }
   }
 
-  /// Descarga el .gguf usando 4 conexiones HTTP paralelas (Range requests).
-  ///
-  /// HuggingFace soporta `Range: bytes=X-Y` así que partimos el archivo
-  /// en N pedazos y los descargamos al mismo tiempo. Esto satura mejor el
-  /// ancho de banda que una sola conexión (que típicamente queda limitada
-  /// por TCP slow start + latencia).
-  ///
-  /// Estrategia:
-  ///   1. HEAD request → obtener Content-Length.
-  ///   2. Crear un archivo "sparse" del tamaño final (con un byte al final).
-  ///   3. Lanzar 4 descargas paralelas, cada una escribiendo en su offset.
-  ///   4. Esperar a que todas terminen.
-  ///   5. Renombrar .partial → definitivo.
   Future<void> _downloadModel(String savePath) async {
     const int numConnections = 4;
-
     final partialPath = '$savePath.partial';
     final partialFile = File(partialPath);
     if (await partialFile.exists()) {
@@ -139,45 +147,33 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
 
     final client = http.Client();
     try {
-      // 1. HEAD para conocer tamaño.
       final headReq = await client.head(Uri.parse(_modelUrl));
       if (headReq.statusCode != 200 && headReq.statusCode != 206) {
-        // Fallback: si HEAD no funciona, descarga secuencial tradicional.
-        print('[Tutor] HEAD no soportado, usando descarga secuencial');
         await _downloadModelSequential(savePath);
         return;
       }
 
-      final totalBytes =
-          int.tryParse(headReq.headers['content-length'] ?? '0') ?? 0;
-      if (totalBytes == 0) {
-        throw Exception('Tamaño del modelo desconocido');
-      }
+      final totalBytes = int.tryParse(headReq.headers['content-length'] ?? '0') ?? 0;
+      if (totalBytes == 0) throw Exception('Tamaño desconocido');
 
-      // Algunos servidores no soportan Range. Verificamos por `Accept-Ranges`.
       final acceptsRanges = headReq.headers['accept-ranges'] == 'bytes';
       if (!acceptsRanges) {
-        print('[Tutor] Servidor no acepta Range, usando descarga secuencial');
         await _downloadModelSequential(savePath);
         return;
       }
 
-      // 2. Crear archivo "sparse" del tamaño total.
       final raf = await partialFile.open(mode: FileMode.write);
       await raf.setPosition(totalBytes - 1);
       await raf.writeByte(0);
       await raf.close();
 
-      // 3. Lanzar descargas paralelas.
       final chunkSize = (totalBytes / numConnections).ceil();
       final progress = List<int>.filled(numConnections, 0);
-
       final futures = <Future<void>>[];
+
       for (int i = 0; i < numConnections; i++) {
         final start = i * chunkSize;
-        final end = (i == numConnections - 1)
-            ? totalBytes - 1
-            : (start + chunkSize - 1);
+        final end = (i == numConnections - 1) ? totalBytes - 1 : (start + chunkSize - 1);
         final idx = i;
 
         futures.add(_downloadChunk(
@@ -201,15 +197,16 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
       }
 
       await Future.wait(futures);
-
-      // 4. Renombrar.
+      final finalSize = await partialFile.length();
+      if (finalSize != totalBytes) {
+        throw Exception('Descarga corrupta');
+      }
       await partialFile.rename(savePath);
     } finally {
       client.close();
     }
   }
 
-  /// Descarga un rango de bytes usando HTTP Range.
   Future<void> _downloadChunk({
     required http.Client client,
     required String url,
@@ -220,20 +217,14 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
   }) async {
     final req = http.Request('GET', Uri.parse(url));
     req.headers['Range'] = 'bytes=$start-$end';
-
     final response = await client.send(req);
     if (response.statusCode != 206 && response.statusCode != 200) {
-      throw Exception('Chunk falló: HTTP ${response.statusCode}');
+      throw Exception('Chunk falló: ${response.statusCode}');
     }
-
-    // Importante: abrir el archivo en modo write Y mantener la posición.
-    // Usamos RandomAccessFile para poder seek al offset exacto del chunk.
     final raf = await File(savePath).open(mode: FileMode.writeOnly);
     int written = 0;
-
     try {
       await raf.setPosition(start);
-
       await for (final bytes in response.stream) {
         await raf.writeFrom(bytes);
         written += bytes.length;
@@ -244,26 +235,18 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
     }
   }
 
-  /// Fallback: descarga clásica en una sola conexión.
-  /// Se usa si el servidor no soporta Range (no debería pasar con HF).
   Future<void> _downloadModelSequential(String savePath) async {
     final partialPath = '$savePath.partial';
     final partialFile = File(partialPath);
     if (await partialFile.exists()) await partialFile.delete();
-
     final client = http.Client();
     try {
       final req = http.Request('GET', Uri.parse(_modelUrl));
       final response = await client.send(req);
-
-      if (response.statusCode != 200) {
-        throw Exception('HTTP ${response.statusCode}');
-      }
-
+      if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
       final totalBytes = response.contentLength ?? 0;
       int bytesDownloaded = 0;
       final sink = partialFile.openWrite();
-
       await for (final chunk in response.stream) {
         sink.add(chunk);
         bytesDownloaded += chunk.length;
@@ -275,7 +258,6 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
           ),
         );
       }
-
       await sink.flush();
       await sink.close();
       await partialFile.rename(savePath);
@@ -284,24 +266,16 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
     }
   }
 
-  /// Construye el prompt usando el chat template de Gemma 2.
-  /// Evitamos llamar getFormattedChat() porque tiene un bug en el código
-  /// nativo Kotlin (ClassCastException: ArrayList cannot be cast to HashMap[]).
   String _buildGemmaPrompt({
     required String systemPrompt,
     required List<ChatMessage> history,
   }) {
     final buffer = StringBuffer();
-
-    // Gemma 2 incluye el system prompt dentro del primer turno de usuario.
-    // Formato: <start_of_turn>user\n{system}\n\n{mensaje}<end_of_turn>
     final userMessages = history.where((m) => !m.isSystem).toList();
-
     for (int i = 0; i < userMessages.length; i++) {
       final m = userMessages[i];
       if (m.isUser) {
         buffer.write('<start_of_turn>user\n');
-        // Inyectar system prompt solo en el primer mensaje del usuario
         if (i == 0 && systemPrompt.isNotEmpty) {
           buffer.write('$systemPrompt\n\n');
         }
@@ -311,8 +285,6 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
         buffer.write('${m.content}<end_of_turn>\n');
       }
     }
-
-    // Turno del modelo sin cerrar → el LLM completa desde aquí
     buffer.write('<start_of_turn>model\n');
     return buffer.toString();
   }
@@ -322,83 +294,53 @@ class FllamaTutorDatasource implements TutorLlmDatasource {
     required String systemPrompt,
     required List<ChatMessage> history,
   }) async* {
-    if (!_isReady || _contextId == null) {
-      throw StateError(
-        'El modelo no está listo. Llama ensureModelReady() primero.',
-      );
+    if (!_isReady || _llamaParent == null) {
+      throw StateError('Modelo no listo.');
     }
 
-    final fllama = Fllama.instance()!;
-
-    // Construimos el prompt manualmente en Dart (evitamos el bug de getFormattedChat)
     final prompt = _buildGemmaPrompt(
       systemPrompt: systemPrompt,
       history: history,
     );
 
-    final controller = StreamController<String>();
-    StreamSubscription<Map<Object?, dynamic>>? sub;
+    if (_generateController != null && !_generateController!.isClosed) {
+      _generateController!.close();
+    }
 
-    sub = fllama.onTokenStream?.listen(
-      (event) {
-        final function = event['function'] as String?;
+    _generateController = StreamController<String>();
+    
+    _llamaParent!.sendPrompt(prompt);
 
-        if (function == 'completion') {
-          final result = event['result'] as Map?;
-          if (result == null) return;
+    await for (final token in _generateController!.stream) {
+      if (token == '[DONE]') break;
+      if (!token.contains('<end_of_turn>')) {
+        yield token;
+      } else {
+        final clean = token.split('<end_of_turn>').first;
+        if (clean.isNotEmpty) yield clean;
+        break;
+      }
+    }
+  }
 
-          final isDone = result['stop'] == true ||
-              result['stopped_eos'] == true ||
-              result['stopped_limit'] == true;
-
-          if (isDone) {
-            sub?.cancel();
-            if (!controller.isClosed) controller.close();
-          } else {
-            final token = result['token'] as String?;
-            if (token != null && token.isNotEmpty) {
-              // Filtramos el token de fin de turno si aparece en el stream
-              if (!token.contains('<end_of_turn>')) {
-                controller.add(token);
-              } else {
-                // Emitir solo la parte antes del token especial
-                final clean = token.split('<end_of_turn>').first;
-                if (clean.isNotEmpty) controller.add(clean);
-                sub?.cancel();
-                if (!controller.isClosed) controller.close();
-              }
-            }
-          }
-        }
-      },
-      onError: (error) {
-        sub?.cancel();
-        controller.addError(error);
-      },
-      onDone: () {
-        if (!controller.isClosed) controller.close();
-      },
+  @override
+  Future<void> deleteModel() async {
+    final path = await _resolveModelPath();
+    final file = File(path);
+    if (await file.exists()) {
+      await file.delete();
+    }
+    _isReady = false;
+    _statusController.add(
+      const ModelDownloadStatus(stage: ModelDownloadStage.idle),
     );
-
-    await fllama.completion(
-      _contextId!,
-      prompt: prompt,
-      temperature: _temperature,
-      topP: _topP,
-      nPredict: _maxTokens,
-      emitRealtimeCompletion: true,
-    );
-
-    yield* controller.stream;
   }
 
   @override
   Future<void> dispose() async {
     await _tokenSubscription?.cancel();
-    if (_contextId != null) {
-      Fllama.instance()?.releaseAllContexts();
-      _contextId = null;
-    }
+    _llamaParent?.stop();
+    _llamaParent = null;
     await _statusController.close();
   }
 }

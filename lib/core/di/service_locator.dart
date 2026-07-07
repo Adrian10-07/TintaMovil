@@ -27,12 +27,27 @@ import '../../features/reader/domain/repositories/reader_repository.dart';
 import '../../features/reader/presentation/viewmodels/reader_viewmodel.dart';
 
 // Tutor AI
-import '../../features/tutorAI/data/datasources/fllama_tutor_datasource.dart';
+import '../../features/tutorAI/data/datasources/llama_cpp_tutor_datasource.dart';
 import '../../features/tutorAI/data/datasources/tutor_llm_datasource.dart';
 import '../../features/tutorAI/data/repositories/tutor_repository_impl.dart';
 import '../../features/tutorAI/domain/repositories/tutor_repository.dart';
+import '../../features/tutorAI/presentation/viewmodels/tutor_chat_viewmodel.dart';
+
+// Knowledge Base
+import '../../features/knowledge_base/data/datasources/knowledge_local_datasource.dart';
+import '../../features/knowledge_base/data/repositories/knowledge_repository_impl.dart';
+import '../../features/knowledge_base/data/services/pdf_text_extractor.dart';
+import '../../features/knowledge_base/data/services/text_chunker.dart';
+import '../../features/knowledge_base/data/services/tfidf_engine.dart';
+import '../../features/knowledge_base/domain/repositories/knowledge_repository.dart';
+
+import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
 
 final sl = GetIt.instance;
+
+// FLAG DE DESARROLLO: Cambiar a `false` para usar el modelo real en un
+// teléfono físico ARM64. En emuladores x86_64 fllama puede no funcionar.
+const bool _useMockLlmForEmulator = false;
 
 void setupServiceLocator() {
   // ── CORE ────────────────────────────────────────────────────────────────
@@ -90,20 +105,49 @@ void setupServiceLocator() {
         () => ReaderViewModel(sl()),
   );
 
+  // ── KNOWLEDGE BASE ──────────────────────────────────────────────────────
+  registerKnowledgeBase();
+
   // ── TUTOR AI ────────────────────────────────────────────────────────────
   registerTutorAi();
 }
 
+void registerKnowledgeBase() {
+  sl.registerLazySingleton<PdfTextExtractor>(() => PdfTextExtractor());
+  sl.registerLazySingleton<TextChunker>(() => TextChunker());
+  sl.registerLazySingleton<TfidfEngine>(() => TfidfEngine());
+  
+  sl.registerLazySingleton<KnowledgeLocalDatasource>(
+    () => KnowledgeLocalDatasource(),
+  );
+
+  sl.registerLazySingleton<KnowledgeRepository>(
+    () => KnowledgeRepositoryImpl(
+      pdfExtractor: sl(),
+      chunker: sl(),
+      tfidfEngine: sl(),
+      datasource: sl(),
+    ),
+  );
+}
+
 void registerTutorAi() {
-  // Datasource: usa Fllama + Gemma 2 2B GGUF.
-  // El modelo se carga una sola vez y se reutiliza.
   sl.registerLazySingleton<TutorLlmDatasource>(
-        () => FllamaTutorDatasource(),
+        () => _useMockLlmForEmulator 
+            ? MockTutorDatasource() 
+            : LlamaCppTutorDatasource(),
   );
 
   sl.registerLazySingleton<TutorRepository>(
         () => TutorRepositoryImpl(
       sl<TutorLlmDatasource>(),
+    ),
+  );
+
+  sl.registerLazySingleton<TutorChatViewModel>(
+        () => TutorChatViewModel(
+      sl<TutorRepository>(),
+      sl<KnowledgeRepository>(),
     ),
   );
 }

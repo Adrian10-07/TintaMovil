@@ -45,7 +45,12 @@ dependencies:
   # Selector de archivos nativo (para que el usuario elija el PDF a subir).
   file_picker: ^8.1.2
   flutter_pdfview: ^1.3.2
-  fllama: ^0.0.1
+  llama_cpp_dart: ^0.2.2
+
+  # Knowledge Base (RAG offline)
+  syncfusion_flutter_pdf: ^27.1.58
+  sqflite: ^2.4.1
+  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:
@@ -92,11 +97,12 @@ flutter:
   #       - asset: fonts/Schyler-Regular.ttf
   #       - asset: fonts/Schyler-Italic.ttf
   #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+dependency_overrides:
+  image: 4.5.4
+  archive: ^4.0.2

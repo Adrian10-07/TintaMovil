@@ -4,6 +4,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 
 import '../../../recommendations/data/datasources/recommendation_remote_datasource.dart';
 import '../../../recommendations/domain/entities/recommendation.dart';
+import '../../../tutorAI/presentation/viewmodels/tutor_chat_viewmodel.dart';
 import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
 import 'package:tinta/core/di/service_locator.dart';
 import 'package:tinta/core/network/http_client.dart';
@@ -32,6 +33,10 @@ class _PdfResultsViewState extends State<PdfResultsView> {
   void initState() {
     super.initState();
     _loadRecommendations();
+    // Iniciar indexación semántica (RAG) en segundo plano
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      sl<TutorChatViewModel>().indexCurrentDocument(widget.pdfFile.path);
+    });
   }
 
   Future<void> _loadRecommendations() async {
@@ -62,10 +67,34 @@ class _PdfResultsViewState extends State<PdfResultsView> {
       appBar: AppBar(
         title: Text(_fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
-          IconButton(
-            tooltip: 'Pregunta a Tinta AI',
-            icon: const Icon(Icons.auto_awesome_rounded),
-            onPressed: _openTutorChat,
+          AnimatedBuilder(
+            animation: sl<TutorChatViewModel>(),
+            builder: (context, _) {
+              final vm = sl<TutorChatViewModel>();
+              
+              if (vm.isIndexing) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
+                    child: Text(
+                      'Indexando ${(vm.indexProgress * 100).toInt()}%',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                );
+              }
+              
+              return IconButton(
+                tooltip: vm.isDocumentIndexed 
+                    ? 'Pregunta a Tinta AI (Indexado)' 
+                    : 'Pregunta a Tinta AI',
+                icon: Icon(
+                  Icons.auto_awesome_rounded,
+                  color: vm.isDocumentIndexed ? Colors.green : null,
+                ),
+                onPressed: _openTutorChat,
+              );
+            },
           ),
         ],
       ),
