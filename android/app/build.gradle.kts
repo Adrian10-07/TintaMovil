@@ -4,7 +4,6 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -28,29 +27,38 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
-
-
     signingConfigs {
         create("release") {
             keyAlias = keystoreProperties.getProperty("keyAlias")
             keyPassword = keystoreProperties.getProperty("keyPassword")
-            storeFile = keystorePropertiesFile.parentFile.resolve(keystoreProperties.getProperty("storeFile") ?: "")
+            storeFile = keystorePropertiesFile.parentFile.resolve(
+                keystoreProperties.getProperty("storeFile") ?: ""
+            )
             storePassword = keystoreProperties.getProperty("storePassword")
         }
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.SoftDev.tinta"
-        minSdk = flutter.minSdkVersion
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // IMPORTANTE: solo soportar arm64 (el AAR solo trae arm64-v8a)
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+        }
+    }
+    packaging {
+        jniLibs {
+            pickFirsts += listOf("lib/arm64-v8a/libc++_shared.so")
         }
     }
 }

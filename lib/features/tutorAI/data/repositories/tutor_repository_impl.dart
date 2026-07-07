@@ -1,4 +1,3 @@
-
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/model_download_status.dart';
 import '../../domain/repositories/tutor_repository.dart';
@@ -25,14 +24,19 @@ class TutorRepositoryImpl implements TutorRepository {
 
     if (relevantChunks != null && relevantChunks.isNotEmpty) {
       // RAG mode: inyectar fragmentos relevantes del documento.
-      final chunksText = relevantChunks
+      // Truncar cada chunk a ~200 chars para caber en 1024 tokens de contexto.
+      final truncatedChunks = relevantChunks
+          .take(2) // máximo 2 fragmentos con contexto reducido
+          .map((c) => c.length > 200 ? '${c.substring(0, 200)}...' : c)
+          .toList();
+      final chunksText = truncatedChunks
           .asMap()
           .entries
           .map((e) => '[Fragmento ${e.key + 1}]: ${e.value}')
           .join('\n\n');
 
       systemPrompt =
-          'Eres Tinta AI, un tutor amigable que ayuda al estudiante con la lectura. '
+      'Eres Tinta AI, un tutor amigable que ayuda al estudiante con la lectura. '
           'El usuario está leyendo un documento. '
           'A continuación tienes los fragmentos más relevantes del documento para responder su pregunta:\n\n'
           '$chunksText\n\n'
@@ -46,7 +50,7 @@ class TutorRepositoryImpl implements TutorRepository {
         truncatedContext = '${truncatedContext.substring(0, 1000)}...';
       }
       systemPrompt =
-          'Eres Tinta AI, un tutor amigable que ayuda al estudiante con la lectura. '
+      'Eres Tinta AI, un tutor amigable que ayuda al estudiante con la lectura. '
           'El usuario está leyendo un documento (fragmento inicial): "$truncatedContext". '
           'Responde preguntas sobre el contenido de forma educativa y motivadora.';
     } else {
