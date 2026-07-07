@@ -40,6 +40,7 @@ import '../../features/knowledge_base/data/services/pdf_text_extractor.dart';
 import '../../features/knowledge_base/data/services/text_chunker.dart';
 import '../../features/knowledge_base/data/services/tfidf_engine.dart';
 import '../../features/knowledge_base/domain/repositories/knowledge_repository.dart';
+import '../../features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
 
 import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
 
@@ -116,26 +117,32 @@ void registerKnowledgeBase() {
   sl.registerLazySingleton<PdfTextExtractor>(() => PdfTextExtractor());
   sl.registerLazySingleton<TextChunker>(() => TextChunker());
   sl.registerLazySingleton<TfidfEngine>(() => TfidfEngine());
-  
+
   sl.registerLazySingleton<KnowledgeLocalDatasource>(
-    () => KnowledgeLocalDatasource(),
+        () => KnowledgeLocalDatasource(),
   );
 
   sl.registerLazySingleton<KnowledgeRepository>(
-    () => KnowledgeRepositoryImpl(
+        () => KnowledgeRepositoryImpl(
       pdfExtractor: sl(),
       chunker: sl(),
       tfidfEngine: sl(),
       datasource: sl(),
     ),
   );
+
+  // Encuesta post-registro: qué bases de conocimiento descargar.
+  // registerFactory: nueva instancia cada vez que se abre la encuesta.
+  sl.registerFactory<KnowledgeBaseSurveyViewModel>(
+        () => KnowledgeBaseSurveyViewModel(sl<KnowledgeRepository>()),
+  );
 }
 
 void registerTutorAi() {
   sl.registerLazySingleton<TutorLlmDatasource>(
-        () => _useMockLlmForEmulator 
-            ? MockTutorDatasource() 
-            : LlamaCppTutorDatasource(),
+        () => _useMockLlmForEmulator
+        ? MockTutorDatasource()
+        : LlamaCppTutorDatasource(),
   );
 
   sl.registerLazySingleton<TutorRepository>(
