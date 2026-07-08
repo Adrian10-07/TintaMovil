@@ -33,6 +33,11 @@ import '../../features/tutorAI/data/repositories/tutor_repository_impl.dart';
 import '../../features/tutorAI/domain/repositories/tutor_repository.dart';
 import '../../features/tutorAI/presentation/viewmodels/tutor_chat_viewmodel.dart';
 
+import '/core/network/sse_client.dart';
+import '../../features/tutorAI/data/datasources/remote_tutor_datasource.dart';
+import '../../features/tutorAI/data/repositories/document_registry_impl.dart';
+import '../../features/tutorAI/domain/repositories/document_registry.dart';
+
 // Knowledge Base
 import '../../features/knowledge_base/data/datasources/knowledge_local_datasource.dart';
 import '../../features/knowledge_base/data/repositories/knowledge_repository_impl.dart';
@@ -44,6 +49,9 @@ import '../../features/knowledge_base/domain/repositories/knowledge_repository.d
 import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
 
 final sl = GetIt.instance;
+
+const String _tutorAiBaseUrl = 'https://tutor-ai-production-c85c.up.railway.app';
+
 
 // FLAG DE DESARROLLO: Cambiar a `false` para usar el modelo real en un
 // teléfono físico ARM64. En emuladores x86_64 fllama puede no funcionar.
@@ -132,16 +140,16 @@ void registerKnowledgeBase() {
 }
 
 void registerTutorAi() {
+  // Los datasources originales de tu compañero se mantienen registrados
+  // por si activan el modo offline después. NO se están usando activamente.
   sl.registerLazySingleton<TutorLlmDatasource>(
-        () => _useMockLlmForEmulator 
-            ? MockTutorDatasource() 
-            : LlamaCppTutorDatasource(),
+        () => _useMockLlmForEmulator
+        ? MockTutorDatasource()
+        : LlamaCppTutorDatasource(),
   );
 
   sl.registerLazySingleton<TutorRepository>(
-        () => TutorRepositoryImpl(
-      sl<TutorLlmDatasource>(),
-    ),
+        () => TutorRepositoryImpl(sl<TutorLlmDatasource>()),
   );
 
   sl.registerLazySingleton<TutorChatViewModel>(
@@ -149,5 +157,20 @@ void registerTutorAi() {
       sl<TutorRepository>(),
       sl<KnowledgeRepository>(),
     ),
+  );
+
+  // ── NUEVO: modo remoto ──────────────────────────────────────────
+  sl.registerLazySingleton<SseClient>(() => SseClient());
+
+  sl.registerLazySingleton<RemoteTutorDatasource>(
+        () => RemoteTutorDatasource(
+      baseUrl: _tutorAiBaseUrl,
+      apiClient: sl<ApiClient>(),
+      sseClient: sl<SseClient>(),
+    ),
+  );
+
+  sl.registerLazySingleton<DocumentRegistry>(
+        () => DocumentRegistryImpl(),
   );
 }
