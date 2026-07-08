@@ -48,7 +48,7 @@ final sl = GetIt.instance;
 
 // FLAG DE DESARROLLO: Cambiar a `false` para usar el modelo real en un
 // teléfono físico ARM64. En emuladores x86_64 fllama puede no funcionar.
-const bool _useMockLlmForEmulator = false;
+const bool _useMockLlmForEmulator = true;
 
 void setupServiceLocator() {
   // ── CORE ────────────────────────────────────────────────────────────────

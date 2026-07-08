@@ -3,29 +3,35 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'package:llama_cpp_dart/llama_cpp_dart.dart';
+import 'package:llama_cpp_dart/llama_cpp_dart.dart' hide ChatMessage;
 
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/model_download_status.dart';
 import 'tutor_llm_datasource.dart';
 
+/// Datasource que usa llama_cpp_dart 0.9.x (LlamaEngine API)
+/// con libs nativas compiladas localmente desde el tag b9360 de llama.cpp
+/// y colocadas en android/app/src/main/jniLibs/arm64-v8a/.
+///
+/// Compiladas con -march=armv8-a (baseline ARM64) para compatibilidad
+/// con TODOS los dispositivos arm64.
 class LlamaCppTutorDatasource implements TutorLlmDatasource {
   static const String _modelUrl =
       'https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF/resolve/main/google_gemma-3-1b-it-Q4_K_M.gguf';
   static const String _modelFileName = 'google_gemma-3-1b-it-Q4_K_M.gguf';
 
-  static const int _contextSize = 2048;
+  // Conservador para dispositivos con 4-6GB RAM (A52s, etc.).
+  // Subir a 2048 solo en dispositivos con >=8GB.
+  static const int _contextSize = 1024;
   static const double _temperature = 0.7;
   static const double _topP = 0.9;
 
   final StreamController<ModelDownloadStatus> _statusController =
-      StreamController<ModelDownloadStatus>.broadcast();
+  StreamController<ModelDownloadStatus>.broadcast();
 
-  LlamaParent? _llamaParent;
+  LlamaEngine? _engine;
   bool _isReady = false;
   bool _isInitializing = false;
-  StreamSubscription<String>? _tokenSubscription;
-  StreamController<String>? _generateController;
 
   @override
   Stream<ModelDownloadStatus> get statusStream => _statusController.stream;
@@ -46,16 +52,13 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
         const ModelDownloadStatus(stage: ModelDownloadStage.checking),
       );
 
+      // Limpiar modelo anterior si existe.
       final dir = await getApplicationDocumentsDirectory();
       final oldModelFile = File('${dir.path}/gemma-2-2b-it-q4_k_m.gguf');
-      if (await oldModelFile.exists()) {
-        // Eliminando modelo anterior de Gemma 2 2B...
-        await oldModelFile.delete();
-      }
-      final oldPartialFile = File('${dir.path}/gemma-2-2b-it-q4_k_m.gguf.partial');
-      if (await oldPartialFile.exists()) {
-        await oldPartialFile.delete();
-      }
+      if (await oldModelFile.exists()) await oldModelFile.delete();
+      final oldPartialFile =
+      File('${dir.path}/gemma-2-2b-it-q4_k_m.gguf.partial');
+      if (await oldPartialFile.exists()) await oldPartialFile.delete();
 
       final path = await _resolveModelPath();
       final file = File(path);
@@ -63,14 +66,15 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
       if (!await file.exists()) {
         await _downloadModel(path);
       } else {
+        // Verificar integridad del modelo descargado.
         final client = http.Client();
         try {
           final headReq = await client.head(Uri.parse(_modelUrl));
-          final expectedSize = int.tryParse(headReq.headers['content-length'] ?? '0') ?? 0;
+          final expectedSize =
+              int.tryParse(headReq.headers['content-length'] ?? '0') ?? 0;
           if (expectedSize > 0) {
             final size = await file.length();
             if (size != expectedSize) {
-              // Modelo corrupto. Redescargando...
               await file.delete();
               await _downloadModel(path);
             }
@@ -90,34 +94,15 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
         const ModelDownloadStatus(stage: ModelDownloadStage.loading),
       );
 
-      // Cargando modelo con llama_cpp_dart...
-      
-      final modelParams = ModelParams()..nGpuLayers = 0;
-      final contextParams = ContextParams()..nCtx = _contextSize;
-      final samplingParams = SamplerParams()
-        ..temp = _temperature
-        ..topP = _topP;
-
-      final loadCommand = LlamaLoad(
-        path: path,
-        modelParams: modelParams,
-        contextParams: contextParams,
-        samplingParams: samplingParams,
-      );
-
-      _llamaParent = LlamaParent(loadCommand);
-      await _llamaParent!.init();
-
-      _tokenSubscription = _llamaParent!.stream.listen(
-        (response) {
-          if (response == '[DONE]') {
-            // Placeholder for done condition
-          } else {
-            _generateController?.add(response);
-          }
-        },
-        onDone: () => _generateController?.close(),
-        onError: (e) => _generateController?.addError(e),
+      // ── Inicializar LlamaEngine (0.9.x API) ──────────────────────────
+      // Android resuelve libllama.so desde jniLibs/arm64-v8a/ por basename.
+      _engine = await LlamaEngine.spawn(
+        libraryPath: 'libllama.so',
+        modelParams: ModelParams(
+          path: path,
+          gpuLayers: 0, // CPU only en Android.
+        ),
+        contextParams: ContextParams(nCtx: _contextSize),
       );
 
       _isReady = true;
@@ -137,13 +122,13 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
     }
   }
 
+  // ── Descarga paralela ─────────────────────────────────────────────────
+
   Future<void> _downloadModel(String savePath) async {
     const int numConnections = 4;
     final partialPath = '$savePath.partial';
     final partialFile = File(partialPath);
-    if (await partialFile.exists()) {
-      await partialFile.delete();
-    }
+    if (await partialFile.exists()) await partialFile.delete();
 
     final client = http.Client();
     try {
@@ -153,7 +138,8 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
         return;
       }
 
-      final totalBytes = int.tryParse(headReq.headers['content-length'] ?? '0') ?? 0;
+      final totalBytes =
+          int.tryParse(headReq.headers['content-length'] ?? '0') ?? 0;
       if (totalBytes == 0) throw Exception('Tamaño desconocido');
 
       final acceptsRanges = headReq.headers['accept-ranges'] == 'bytes';
@@ -173,7 +159,9 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
 
       for (int i = 0; i < numConnections; i++) {
         final start = i * chunkSize;
-        final end = (i == numConnections - 1) ? totalBytes - 1 : (start + chunkSize - 1);
+        final end = (i == numConnections - 1)
+            ? totalBytes - 1
+            : (start + chunkSize - 1);
         final idx = i;
 
         futures.add(_downloadChunk(
@@ -198,9 +186,7 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
 
       await Future.wait(futures);
       final finalSize = await partialFile.length();
-      if (finalSize != totalBytes) {
-        throw Exception('Descarga corrupta');
-      }
+      if (finalSize != totalBytes) throw Exception('Descarga corrupta');
       await partialFile.rename(savePath);
     } finally {
       client.close();
@@ -243,7 +229,9 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
     try {
       final req = http.Request('GET', Uri.parse(_modelUrl));
       final response = await client.send(req);
-      if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}');
+      }
       final totalBytes = response.contentLength ?? 0;
       int bytesDownloaded = 0;
       final sink = partialFile.openWrite();
@@ -266,70 +254,66 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
     }
   }
 
-  String _buildGemmaPrompt({
-    required String systemPrompt,
-    required List<ChatMessage> history,
-  }) {
-    final buffer = StringBuffer();
-    final userMessages = history.where((m) => !m.isSystem).toList();
-    for (int i = 0; i < userMessages.length; i++) {
-      final m = userMessages[i];
-      if (m.isUser) {
-        buffer.write('<start_of_turn>user\n');
-        if (i == 0 && systemPrompt.isNotEmpty) {
-          buffer.write('$systemPrompt\n\n');
-        }
-        buffer.write('${m.content}<end_of_turn>\n');
-      } else {
-        buffer.write('<start_of_turn>model\n');
-        buffer.write('${m.content}<end_of_turn>\n');
-      }
-    }
-    buffer.write('<start_of_turn>model\n');
-    return buffer.toString();
-  }
+  // ── Generación con EngineChat (0.9.x) ─────────────────────────────────
 
   @override
   Stream<String> generate({
     required String systemPrompt,
     required List<ChatMessage> history,
   }) async* {
-    if (!_isReady || _llamaParent == null) {
+    if (!_isReady || _engine == null) {
       throw StateError('Modelo no listo.');
     }
 
-    final prompt = _buildGemmaPrompt(
-      systemPrompt: systemPrompt,
-      history: history,
-    );
+    // EngineChat aplica automáticamente el chat template del modelo
+    // (Gemma detectado via llama_chat_apply_template).
+    final chat = await _engine!.createChat();
 
-    if (_generateController != null && !_generateController!.isClosed) {
-      _generateController!.close();
-    }
+    // 1. System prompt.
+    chat.addSystem(systemPrompt);
 
-    _generateController = StreamController<String>();
-    
-    _llamaParent!.sendPrompt(prompt);
-
-    await for (final token in _generateController!.stream) {
-      if (token == '[DONE]') break;
-      if (!token.contains('<end_of_turn>')) {
-        yield token;
-      } else {
-        final clean = token.split('<end_of_turn>').first;
-        if (clean.isNotEmpty) yield clean;
-        break;
+    // 2. Historial de mensajes (sin system ni streaming).
+    final userMessages =
+    history.where((m) => !m.isSystem && !m.isStreaming).toList();
+    for (final m in userMessages) {
+      if (m.isUser) {
+        chat.addUser(m.content);
+      } else if (m.isAssistant) {
+        chat.addAssistant(m.content);
       }
     }
+
+    // 3. Generar respuesta en streaming.
+    // Con contexto de 1024, prompt+historial ocupa ~500-700 tokens,
+    // así que limitamos la generación a 256 para no exceder el buffer.
+    await for (final event in chat.generate(
+      maxTokens: 256,
+      sampler: SamplerParams(
+        temperature: _temperature,
+        topP: _topP,
+      ),
+    )) {
+      switch (event) {
+        case TokenEvent():
+          yield event.text;
+        case ShiftEvent():
+        // Context shift — ignorar silenciosamente.
+          break;
+        case DoneEvent():
+        // Generación terminada.
+          break;
+      }
+    }
+
+    // Liberar la sesión de chat.
+    await chat.dispose();
   }
 
   @override
   Future<void> deleteModel() async {
     final path = await _resolveModelPath();
     final file = File(path);
-    if (await file.exists()) {
-      await file.delete();
-    }
+    if (await file.exists()) await file.delete();
     _isReady = false;
     _statusController.add(
       const ModelDownloadStatus(stage: ModelDownloadStage.idle),
@@ -338,9 +322,8 @@ class LlamaCppTutorDatasource implements TutorLlmDatasource {
 
   @override
   Future<void> dispose() async {
-    await _tokenSubscription?.cancel();
-    _llamaParent?.stop();
-    _llamaParent = null;
+    await _engine?.dispose();
+    _engine = null;
     await _statusController.close();
   }
 }
