@@ -19,5 +19,7 @@ abstract class TutorLlmDatasource {
     required List<ChatMessage> history,
   });
 
+  Future<void> deleteModel();
+
   Future<void> dispose();
 }

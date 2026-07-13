@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:tinta/core/di/service_locator.dart';
 
-import '../../domain/repositories/tutor_repository.dart';
+
 import '../components/chat_input_bar.dart';
 import '../components/chat_message_bubble.dart';
 import '../components/model_download_progress.dart';
@@ -54,16 +54,16 @@ class TutorChatSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<TutorChatViewModel>(
-      create: (_) {
-        final vm = TutorChatViewModel(
-          sl<TutorRepository>(),
-          documentContext: documentContext,
-        );
-        // Iniciar la descarga/carga del modelo de inmediato.
-        vm.initializeModel();
-        return vm;
-      },
+    final vm = sl<TutorChatViewModel>();
+    
+    // Evitar llamar notifyListeners() durante la fase de build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      vm.setContext(documentContext);
+      vm.initializeModel();
+    });
+
+    return ChangeNotifierProvider<TutorChatViewModel>.value(
+      value: vm,
       child: _TutorChatSheetContent(documentContext: documentContext),
     );
   }

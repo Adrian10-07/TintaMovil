@@ -26,11 +26,17 @@ abstract class TutorRepository {
   /// a medida que el modelo los genera. La UI los va concatenando para
   /// mostrar la respuesta apareciendo en tiempo real.
   ///
-  /// El parámetro `documentContext` permite pasar el nombre del PDF que
-  /// el usuario está leyendo, para que el modelo lo mencione si es relevante.
+  /// [documentContext] permite pasar el nombre del PDF que el usuario está
+  /// leyendo, para que el modelo lo mencione si es relevante.
+  ///
+  /// [relevantChunks] contiene los fragmentos del documento más relevantes
+  /// a la pregunta del usuario (obtenidos vía RAG). Si se proporcionan,
+  /// se inyectan en el system prompt para que el LLM responda con base
+  /// en el contenido real del documento.
   Stream<String> generateResponse({
     required List<ChatMessage> history,
     String? documentContext,
+    List<String>? relevantChunks,
   });
 
   /// Libera la memoria del modelo. Se llama cuando el usuario cierra
