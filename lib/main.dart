@@ -10,6 +10,9 @@ import 'features/home/presentation/viewmodels/home_viewmodel.dart';
 import 'features/user/presentation/viewmodels/user_viewmodel.dart';
 import 'features/knowledge_base/data/datasources/knowledge_base_prefs.dart';
 import 'features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
+import 'features/home/data/services/streak_service.dart';
+import 'core/network/session_storage.dart';
+import 'core/network/http_client.dart';
 
 import 'features/auth/presentation/views/login_view.dart';
 import 'features/auth/presentation/views/register_view.dart';
@@ -48,6 +51,9 @@ Future<void> _afterAuthSuccess(
     return;
   }
 
+  // Cuenta el login de hoy para la racha de lectura.
+  await StreakService.registerVisit(userId);
+
   final alreadyCompleted =
   isNewAccount ? false : await KnowledgeBasePrefs.isSurveyCompleted(userId);
 
@@ -57,6 +63,78 @@ Future<void> _afterAuthSuccess(
     Navigator.pushReplacementNamed(ctx, '/home');
   } else {
     Navigator.pushReplacementNamed(ctx, '/kb-survey', arguments: userId);
+  }
+}
+
+/// Primera pantalla que se muestra al abrir la app.
+/// Revisa si hay una sesión guardada:
+///   - Si hay tokens guardados y el perfil carga bien → cuenta el login de
+///     hoy para la racha y entra directo a Home (sin pedir login otra vez).
+///   - Si no hay sesión, o los tokens ya expiraron → manda a /login.
+class _SplashGate extends StatefulWidget {
+  const _SplashGate();
+
+  @override
+  State<_SplashGate> createState() => _SplashGateState();
+}
+
+class _SplashGateState extends State<_SplashGate> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkSession());
+  }
+
+  Future<void> _checkSession() async {
+    final session = await SessionStorage.load();
+
+    if (session == null) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+
+    // Inyecta los tokens guardados en el cliente HTTP compartido.
+    sl<ApiClient>().setTokens(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    );
+
+    try {
+      final userVm = sl<UserViewModel>();
+      await userVm.loadProfile();
+
+      final userId = userVm.profile?.id;
+      if (userId == null) throw Exception('Perfil no disponible');
+
+      // Cuenta el login de hoy para la racha de lectura.
+      await StreakService.registerVisit(userId);
+
+      if (!mounted) return;
+
+      final alreadyCompleted =
+      await KnowledgeBasePrefs.isSurveyCompleted(userId);
+
+      if (alreadyCompleted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        Navigator.pushReplacementNamed(context, '/kb-survey', arguments: userId);
+      }
+    } catch (_) {
+      // El token guardado ya no sirve (expiró o fue revocado):
+      // limpiamos la sesión y regresamos a login.
+      await SessionStorage.clear();
+      sl<ApiClient>().clearTokens();
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
   }
 }
 
@@ -79,8 +157,9 @@ class TintaApp extends StatelessWidget {
             theme: theme.light(),
             darkTheme: theme.dark(),
             themeMode: ThemeMode.system,
-            initialRoute: '/login',
+            initialRoute: '/splash',
             routes: {
+              '/splash': (_) => const _SplashGate(),
               '/login': (_) => ChangeNotifierProvider<AuthViewModel>(
                 create: (_) => sl<AuthViewModel>(),
                 child: Builder(

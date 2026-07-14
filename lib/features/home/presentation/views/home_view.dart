@@ -39,6 +39,11 @@ class _HomeViewState extends State<HomeView> {
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.viewModel.loadInitialCatalog(widget.defaultQuery);
+
+      final userId = context.read<UserViewModel>().profile?.id;
+      if (userId != null) {
+        widget.viewModel.loadStreak(userId);
+      }
     });
   }
 
@@ -173,6 +178,8 @@ class _HomeViewState extends State<HomeView> {
       scrollController: _scrollController,
       books: books,
       hasMore: widget.viewModel.hasMoreItems,
+      streakDays: widget.viewModel.streakDays,
+      completedDayIndices: widget.viewModel.completedDayIndices,
       onBookTap: _onBookTap,
     );
   }
@@ -182,12 +189,16 @@ class _CatalogContent extends StatelessWidget {
   final ScrollController scrollController;
   final List<Book> books;
   final bool hasMore;
+  final int streakDays;
+  final List<int> completedDayIndices;
   final void Function(Book) onBookTap;
 
   const _CatalogContent({
     required this.scrollController,
     required this.books,
     required this.hasMore,
+    required this.streakDays,
+    required this.completedDayIndices,
     required this.onBookTap,
   });
 
@@ -199,10 +210,13 @@ class _CatalogContent extends StatelessWidget {
     return CustomScrollView(
       controller: scrollController,
       slivers: [
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: StreakCard(),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: StreakCard(
+              streakDays: streakDays,
+              completedDayIndices: completedDayIndices,
+            ),
           ),
         ),
 

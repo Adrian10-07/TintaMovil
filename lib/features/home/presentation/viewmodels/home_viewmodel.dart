@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/book.dart';
 import '../../domain/repositories/book_repository.dart';
+import '../../data/services/streak_service.dart';
 
 enum HomeState { initial, loadingInitial, success, error }
 
@@ -34,6 +35,22 @@ class HomeViewModel extends ChangeNotifier {
 
   // El catálogo curado es local y pequeño — no hay scroll infinito.
   bool get hasMoreItems => false;
+
+  // ── Racha de lectura ────────────────────────────────────────────────────
+  int _streakDays = 0;
+  int get streakDays => _streakDays;
+
+  List<int> _completedDayIndices = const [];
+  List<int> get completedDayIndices => _completedDayIndices;
+
+  /// Solo lee el estado guardado (no cuenta un nuevo día). Llamar al abrir
+  /// Home para pintar la tarjeta con el valor real.
+  Future<void> loadStreak(String userId) async {
+    final result = await StreakService.getCurrent(userId);
+    _streakDays = result.streakDays;
+    _completedDayIndices = result.completedDayIndices;
+    notifyListeners();
+  }
 
   Future<void> selectCategory(BookCategory category) async {
     if (_selectedCategory == category) return;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/network/http_client.dart';
+import '../../../../core/network/session_storage.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/entities/token_pair.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -57,6 +58,12 @@ class AuthViewModel extends ChangeNotifier {
         refreshToken: _tokens!.refreshToken,
       );
 
+      // 4. Persistir sesión para no pedir login la próxima vez que abra la app
+      await SessionStorage.save(
+        accessToken: _tokens!.accessToken,
+        refreshToken: _tokens!.refreshToken,
+      );
+
       _setState(AuthState.success);
     } on ConflictException catch (e) {
       _errorMessage = 'Este correo ya está registrado';
@@ -86,6 +93,12 @@ class AuthViewModel extends ChangeNotifier {
         refreshToken: _tokens!.refreshToken,
       );
 
+      // Persistir sesión para no pedir login la próxima vez que abra la app
+      await SessionStorage.save(
+        accessToken: _tokens!.accessToken,
+        refreshToken: _tokens!.refreshToken,
+      );
+
       _setState(AuthState.success);
     } on UnauthorizedException {
       _errorMessage = 'Correo o contraseña incorrectos';
@@ -106,6 +119,7 @@ class AuthViewModel extends ChangeNotifier {
       // Logout silencioso — si falla la red, limpiamos localmente de todas formas
     } finally {
       _apiClient.clearTokens();
+      await SessionStorage.clear();
       _currentUser = null;
       _tokens = null;
       _setState(AuthState.initial);
