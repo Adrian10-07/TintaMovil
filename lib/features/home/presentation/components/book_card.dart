@@ -1,12 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Tarjeta de libro individual en el catálogo.
-///
-/// Muestra portada, título y autores.
-/// Recibe un objeto [book] con las propiedades:
-///   - title (String)
-///   - authors (List<String>)
-///   - thumbnailUrl (String?)
 class BookCard extends StatelessWidget {
   final dynamic book;
   final VoidCallback? onTap;
@@ -22,6 +15,9 @@ class BookCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
+    final String? description = book.description as String?;
+    final String category = (book.category as String?) ?? 'General';
+
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -29,6 +25,7 @@ class BookCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _BookThumbnail(thumbnailUrl: book.thumbnailUrl),
               const SizedBox(width: 14),
@@ -51,6 +48,20 @@ class BookCard extends StatelessWidget {
                         color: colorScheme.onSurface.withOpacity(0.50),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    _CategoryChip(label: category, colorScheme: colorScheme),
+                    if (description != null && description.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.65),
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -62,6 +73,32 @@ class BookCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  final ColorScheme colorScheme;
+
+  const _CategoryChip({required this.label, required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.onPrimaryContainer,
         ),
       ),
     );
@@ -82,9 +119,25 @@ class _BookThumbnail extends StatelessWidget {
       child: thumbnailUrl != null
           ? Image.network(
         thumbnailUrl!,
-        width: 60,
-        height: 80,
+        width: 64,
+        height: 96,
         fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return SizedBox(
+            width: 64,
+            height: 96,
+            child: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                value: progress.expectedTotalBytes != null
+                    ? progress.cumulativeBytesLoaded /
+                    progress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          );
+        },
         errorBuilder: (_, __, ___) =>
             _BookPlaceholder(colorScheme: colorScheme),
       )
@@ -101,8 +154,8 @@ class _BookPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 60,
-      height: 80,
+      width: 64,
+      height: 96,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [

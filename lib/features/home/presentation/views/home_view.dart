@@ -12,6 +12,7 @@ import '../../../../features/home/domain/entities/book.dart';
 import '../../../../features/recommendations/presentation/views/upload_book_view.dart';
 import '../../../../features/recommendations/presentation/views/recommendations_view.dart';
 import '../../../../features/document_viewer/presentation/views/pdf_results_view.dart';
+import 'all_books_view.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../components/currently_reading_book.dart';
@@ -63,6 +64,10 @@ class _HomeViewState extends State<HomeView> with RouteAware {
     super.dispose();
   }
 
+  /// Se llama cuando la ruta de arriba se cierra y Home vuelve a quedar
+  /// visible (por ejemplo, al regresar de leer un libro). Refresca la
+  /// racha y "Leyendo actualmente" sin importar cuántas pantallas se
+  /// hayan apilado encima de Home.
   @override
   void didPopNext() {
     _reloadUserData();
@@ -87,11 +92,26 @@ class _HomeViewState extends State<HomeView> with RouteAware {
     Navigator.pushNamed(context, '/book-detail', arguments: book);
   }
 
-  /// Al tocar una tarjeta de "Leyendo actualmente":
-  ///   - Si es un PDF subido (bookId empieza con "upload:"), abre el
-  ///     visor de PDF simple ya existente (PdfResultsView).
-  ///   - Si es un libro del catálogo, abre el lector de EPUB en ese libro.
+  void _onSeeAllTap() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AllBooksView(
+          viewModel: widget.viewModel,
+          onBookTap: _onBookTap,
+        ),
+      ),
+    );
+  }
+
+  /// Al tocar una tarjeta de "Leyendo actualmente", busca el libro
+  /// correspondiente en el catálogo cargado y abre el lector directo en
+  /// ese libro para continuar leyendo. Si es un PDF subido (no tiene
+  /// lector), avisa que aún no se puede abrir.
   void _onCurrentlyReadingTap(CurrentlyReadingBook book) {
+    // Los PDFs subidos guardan su ruta local como bookId con el prefijo
+    // "upload:" (ver upload_book_viewmodel.dart). Si es uno de esos,
+    // abrimos el visor de PDF simple en vez del lector de EPUB.
     if (book.bookId.startsWith('upload:')) {
       final path = book.bookId.substring('upload:'.length);
       final file = File(path);
@@ -153,6 +173,7 @@ class _HomeViewState extends State<HomeView> with RouteAware {
   Future<void> _onUploadTap() async {
     final userVm = sl<UserViewModel>();
 
+    // Si el perfil aún no se cargó en esta sesión, lo pedimos al backend.
     if (userVm.profile == null) {
       await userVm.loadProfile();
     }
@@ -183,11 +204,15 @@ class _HomeViewState extends State<HomeView> with RouteAware {
   }
 
   void _onNavTap(int index) {
+    // Handle navigation for specific tabs
     if (index == 1) {
+      // Explorar tab → navigate to recommendations
       _onRecommendationsTap();
     } else if (index == 2) {
+      // Estudio tab → navigate to upload book
       _onUploadTap();
     } else if (index == 4) {
+      // Yo tab → navigate to user profile
       Navigator.pushNamed(context, '/user');
       return;
     }
@@ -261,6 +286,7 @@ class _HomeViewState extends State<HomeView> with RouteAware {
       completedDayIndices: widget.viewModel.completedDayIndices,
       currentlyReading: widget.viewModel.currentlyReading,
       onBookTap: _onBookTap,
+      onSeeAllTap: _onSeeAllTap,
       onCurrentlyReadingTap: _onCurrentlyReadingTap,
       onCurrentlyReadingLongPress: _onCurrentlyReadingLongPress,
     );
@@ -275,6 +301,7 @@ class _CatalogContent extends StatelessWidget {
   final List<int> completedDayIndices;
   final List<CurrentlyReadingBook> currentlyReading;
   final void Function(Book) onBookTap;
+  final VoidCallback onSeeAllTap;
   final void Function(CurrentlyReadingBook) onCurrentlyReadingTap;
   final void Function(CurrentlyReadingBook) onCurrentlyReadingLongPress;
 
@@ -286,6 +313,7 @@ class _CatalogContent extends StatelessWidget {
     required this.completedDayIndices,
     required this.currentlyReading,
     required this.onBookTap,
+    required this.onSeeAllTap,
     required this.onCurrentlyReadingTap,
     required this.onCurrentlyReadingLongPress,
   });
@@ -308,12 +336,16 @@ class _CatalogContent extends StatelessWidget {
           ),
         ),
 
+        // Carrusel horizontal "Leyendo actualmente" — scroll lateral
+        // independiente del scroll vertical de este CustomScrollView.
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.only(top: 24),
             child: CurrentlyReadingSection(
               books: currentlyReading,
-              onSeeAllTap: () {},
+              onSeeAllTap: () {
+                // pendiente: navegar a vista de "todos los en progreso"
+              },
               onBookTap: onCurrentlyReadingTap,
               onBookLongPress: onCurrentlyReadingLongPress,
             ),
@@ -327,10 +359,17 @@ class _CatalogContent extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Explorar catálogo', style: textTheme.headlineSmall),
-                Text(
-                  'Ver todo',
-                  style: textTheme.labelMedium
-                      ?.copyWith(color: colorScheme.primary),
+                InkWell(
+                  onTap: onSeeAllTap,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    child: Text(
+                      'Ver todo',
+                      style: textTheme.labelMedium
+                          ?.copyWith(color: colorScheme.primary),
+                    ),
+                  ),
                 ),
               ],
             ),
