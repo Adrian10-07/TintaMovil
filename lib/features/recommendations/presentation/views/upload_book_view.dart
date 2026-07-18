@@ -16,14 +16,6 @@ import '../components/upload_dropzone.dart';
 import '../components/recent_document.dart';
 import '../components/recent_documents_section.dart';
 
-/// Vista "Sube un libro" — el usuario elige un PDF y, al subirlo, el motor
-/// ML (Go) genera recomendaciones basadas en su contenido.
-///
-/// Es AUTOCONTENIDA: crea su propio ViewModel. Para mostrarla:
-///
-///   Navigator.push(context, MaterialPageRoute(
-///     builder: (_) => UploadBookView(userId: currentUser.id),
-///   ));
 class UploadBookView extends StatefulWidget {
   final String userId;
   final VoidCallback? onDone;
@@ -69,10 +61,7 @@ class _UploadBookViewState extends State<UploadBookView> {
     await _viewModel.generate(userId: widget.userId, questions: preguntas);
   }
 
-  void _onChatTap(RecentDocument document) {
-    // Placeholder: navegación a chat por documento, pendiente de
-    // implementar cuando exista persistencia real de documentos.
-  }
+  void _onChatTap(RecentDocument document) {}
 
   @override
   Widget build(BuildContext context) {
@@ -138,10 +127,6 @@ class _UploadBookViewState extends State<UploadBookView> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Campo de pregunta opcional
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _QuestionField extends StatelessWidget {
   final TextEditingController controller;
   const _QuestionField({required this.controller});
@@ -159,10 +144,6 @@ class _QuestionField extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Botón de generar
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _GenerateButton extends StatelessWidget {
   final UploadBookViewModel vm;
@@ -184,15 +165,11 @@ class _GenerateButton extends StatelessWidget {
           width: 18,
           child: CircularProgressIndicator(strokeWidth: 2),
         )
-            : const Text('Analizar y Estudiar'),
+            : const Text('Analizar y ver'),
       ),
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Resultado / error
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ResultArea extends StatelessWidget {
   final UploadBookViewModel vm;
@@ -219,20 +196,50 @@ class _ResultArea extends StatelessWidget {
         return const Center(child: CircularProgressIndicator());
 
       case UploadState.error:
+        final esOffline = vm.isOfflineError;
         return Card(
-          color: colorScheme.errorContainer.withOpacity(0.4),
+          color: esOffline
+              ? colorScheme.tertiaryContainer.withOpacity(0.5)
+              : colorScheme.errorContainer.withOpacity(0.4),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.error_outline_rounded, color: colorScheme.error),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    vm.errorMessage ?? 'Ocurrió un error',
-                    style: textTheme.bodyMedium,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      esOffline ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+                      color: esOffline ? colorScheme.onTertiaryContainer : colorScheme.error,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        vm.errorMessage ?? 'Ocurrió un error',
+                        style: textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
                 ),
+                if (esOffline && vm.selectedFile != null) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PdfResultsView(pdfFile: vm.selectedFile!),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                      label: const Text('Ver PDF sin recomendaciones'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

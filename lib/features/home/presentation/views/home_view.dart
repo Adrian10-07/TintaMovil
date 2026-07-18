@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 import 'package:tinta/core/ui/theme3material/theme.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../../../../core/presentation/components/tinta_background.dart';
@@ -10,6 +11,7 @@ import '../components/tinta_bottom_nav.dart';
 import '../../../../features/home/domain/entities/book.dart';
 import '../../../../features/recommendations/presentation/views/upload_book_view.dart';
 import '../../../../features/recommendations/presentation/views/recommendations_view.dart';
+import '../../../../features/document_viewer/presentation/views/pdf_results_view.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../components/currently_reading_book.dart';
@@ -85,7 +87,29 @@ class _HomeViewState extends State<HomeView> with RouteAware {
     Navigator.pushNamed(context, '/book-detail', arguments: book);
   }
 
+  /// Al tocar una tarjeta de "Leyendo actualmente":
+  ///   - Si es un PDF subido (bookId empieza con "upload:"), abre el
+  ///     visor de PDF simple ya existente (PdfResultsView).
+  ///   - Si es un libro del catálogo, abre el lector de EPUB en ese libro.
   void _onCurrentlyReadingTap(CurrentlyReadingBook book) {
+    if (book.bookId.startsWith('upload:')) {
+      final path = book.bookId.substring('upload:'.length);
+      final file = File(path);
+
+      if (!file.existsSync()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ese archivo ya no está disponible en el dispositivo.')),
+        );
+        return;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PdfResultsView(pdfFile: file)),
+      );
+      return;
+    }
+
     final catalogBook = widget.viewModel.findBookById(book.bookId);
 
     if (catalogBook == null) {
