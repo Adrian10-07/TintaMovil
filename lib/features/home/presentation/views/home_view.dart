@@ -14,6 +14,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../components/currently_reading_book.dart';
 import '../components/currently_reading_section.dart';
+import '../../../../main.dart' show appRouteObserver;
 
 class HomeView extends StatefulWidget {
   final HomeViewModel viewModel;
@@ -29,7 +30,7 @@ class HomeView extends StatefulWidget {
   State<HomeView> createState() => _HomeViewState();
 }
 
-class _HomeViewState extends State<HomeView> {
+class _HomeViewState extends State<HomeView> with RouteAware {
   final ScrollController _scrollController = ScrollController();
   int _selectedNavIndex = 0;
 
@@ -39,19 +40,38 @@ class _HomeViewState extends State<HomeView> {
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.viewModel.loadInitialCatalog(widget.defaultQuery);
-
-      final userId = context.read<UserViewModel>().profile?.id;
-      if (userId != null) {
-        widget.viewModel.loadStreak(userId);
-      }
+      _reloadUserData();
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    _reloadUserData();
+  }
+
+  void _reloadUserData() {
+    final userId = context.read<UserViewModel>().profile?.id;
+    if (userId != null) {
+      widget.viewModel.loadStreak(userId);
+      widget.viewModel.loadCurrentlyReading(userId);
+    }
   }
 
   void _onScroll() {
@@ -62,14 +82,53 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _onBookTap(Book book) {
-    // Navega al detalle del libro pasando el libro como argumento
     Navigator.pushNamed(context, '/book-detail', arguments: book);
+  }
+
+  void _onCurrentlyReadingTap(CurrentlyReadingBook book) {
+    final catalogBook = widget.viewModel.findBookById(book.bookId);
+
+    if (catalogBook == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Este documento aún no tiene un lector disponible.')),
+      );
+      return;
+    }
+
+    Navigator.pushNamed(context, '/reader', arguments: catalogBook);
+  }
+
+  Future<void> _onCurrentlyReadingLongPress(CurrentlyReadingBook book) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Quitar de Leyendo actualmente'),
+        content: Text('¿Quitar "${book.title}" de tu lista? Esto no borra tu progreso guardado en el libro, solo lo oculta de aquí.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+    if (!mounted) return;
+
+    final userId = context.read<UserViewModel>().profile?.id;
+    if (userId != null) {
+      await widget.viewModel.removeFromCurrentlyReading(userId, book.bookId);
+    }
   }
 
   Future<void> _onUploadTap() async {
     final userVm = sl<UserViewModel>();
 
-    // Si el perfil aún no se cargó en esta sesión, lo pedimos al backend.
     if (userVm.profile == null) {
       await userVm.loadProfile();
     }
@@ -100,15 +159,11 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void _onNavTap(int index) {
-    // Handle navigation for specific tabs
     if (index == 1) {
-      // Explorar tab → navigate to recommendations
       _onRecommendationsTap();
     } else if (index == 2) {
-      // Estudio tab → navigate to upload book
       _onUploadTap();
     } else if (index == 4) {
-      // Yo tab → navigate to user profile
       Navigator.pushNamed(context, '/user');
       return;
     }
@@ -180,7 +235,10 @@ class _HomeViewState extends State<HomeView> {
       hasMore: widget.viewModel.hasMoreItems,
       streakDays: widget.viewModel.streakDays,
       completedDayIndices: widget.viewModel.completedDayIndices,
+      currentlyReading: widget.viewModel.currentlyReading,
       onBookTap: _onBookTap,
+      onCurrentlyReadingTap: _onCurrentlyReadingTap,
+      onCurrentlyReadingLongPress: _onCurrentlyReadingLongPress,
     );
   }
 }
@@ -191,7 +249,10 @@ class _CatalogContent extends StatelessWidget {
   final bool hasMore;
   final int streakDays;
   final List<int> completedDayIndices;
+  final List<CurrentlyReadingBook> currentlyReading;
   final void Function(Book) onBookTap;
+  final void Function(CurrentlyReadingBook) onCurrentlyReadingTap;
+  final void Function(CurrentlyReadingBook) onCurrentlyReadingLongPress;
 
   const _CatalogContent({
     required this.scrollController,
@@ -199,7 +260,10 @@ class _CatalogContent extends StatelessWidget {
     required this.hasMore,
     required this.streakDays,
     required this.completedDayIndices,
+    required this.currentlyReading,
     required this.onBookTap,
+    required this.onCurrentlyReadingTap,
+    required this.onCurrentlyReadingLongPress,
   });
 
   @override
@@ -220,19 +284,14 @@ class _CatalogContent extends StatelessWidget {
           ),
         ),
 
-        // Carrusel horizontal "Leyendo actualmente" — scroll lateral
-        // independiente del scroll vertical de este CustomScrollView.
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.only(top: 24),
             child: CurrentlyReadingSection(
-              books: mockCurrentlyReading,
-              onSeeAllTap: () {
-                // pendiente: navegar a vista de "todos los en progreso"
-              },
-              onBookTap: (book) {
-                // pendiente: navegar al detalle/lector de ese libro
-              },
+              books: currentlyReading,
+              onSeeAllTap: () {},
+              onBookTap: onCurrentlyReadingTap,
+              onBookLongPress: onCurrentlyReadingLongPress,
             ),
           ),
         ),

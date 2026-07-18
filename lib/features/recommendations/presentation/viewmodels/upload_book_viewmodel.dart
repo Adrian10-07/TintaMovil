@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../data/datasources/recommendation_upload_datasource.dart';
+import '../../../reader/data/services/reading_library_service.dart';
 
 enum UploadState { idle, picking, uploading, success, error }
 
-/// ViewModel de la vista "Sube un libro para recibir recomendaciones".
 class UploadBookViewModel extends ChangeNotifier {
   final RecommendationUploadDataSource _dataSource;
 
@@ -36,7 +36,6 @@ class UploadBookViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sube el PDF seleccionado y genera las recomendaciones.
   Future<void> generate({
     required String userId,
     List<String> questions = const [],
@@ -60,11 +59,29 @@ class UploadBookViewModel extends ChangeNotifier {
       );
       _recomendacionesGeneradas = n;
       _state = UploadState.success;
+
+      const totalEsperado = 5;
+      await ReadingLibraryService.upsert(
+        userId,
+        ReadingLibraryEntry(
+          bookId: 'upload:${_selectedFile!.path}',
+          title: _fileNameFrom(_selectedFile!.path),
+          author: 'Documento subido — análisis ML',
+          currentPage: n.clamp(0, totalEsperado),
+          totalPages: totalEsperado,
+          lastReadAt: DateTime.now(),
+        ),
+      );
     } catch (e) {
       _errorMessage = e.toString();
       _state = UploadState.error;
     } finally {
       notifyListeners();
     }
+  }
+
+  String _fileNameFrom(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    return normalized.split('/').last;
   }
 }

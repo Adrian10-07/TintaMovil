@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'currently_reading_book.dart';
 
-/// Card grande de "Currently Reading": fondo de color sólido con blobs
-/// decorativos sutiles, ícono temático arriba, título/autor abajo, y
-/// una barra de progreso con porcentaje + páginas.
 class CurrentlyReadingCard extends StatelessWidget {
   final CurrentlyReadingBook book;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const CurrentlyReadingCard({
     Key? key,
     required this.book,
     this.onTap,
+    this.onLongPress,
   }) : super(key: key);
 
   @override
@@ -19,6 +18,7 @@ class CurrentlyReadingCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         width: 168,
         height: 190,
@@ -29,7 +29,6 @@ class CurrentlyReadingCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // Blob decorativo sutil, igual al estilo TintaBackground
             Positioned(
               top: -30,
               right: -30,
@@ -70,7 +69,7 @@ class CurrentlyReadingCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${book.percent}% · ${book.totalPages} páginas',
+                  '${book.percent}% · página ${book.currentPage}/${book.totalPages}',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.85),
                     fontSize: 11,

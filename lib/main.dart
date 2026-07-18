@@ -22,6 +22,12 @@ import 'features/reader/presentation/views/reader_view.dart';
 import 'features/user/presentation/views/user_view.dart';
 import 'features/knowledge_base/presentation/views/knowledge_base_survey_view.dart';
 
+/// Observer global de navegación. Permite que pantallas como Home se
+/// enteren cuando vuelven a quedar visibles tras un pop (por ejemplo, al
+/// regresar de leer un libro), sin importar cuántas rutas intermedias se
+/// hayan apilado encima.
+final RouteObserver<PageRoute> appRouteObserver = RouteObserver<PageRoute>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupServiceLocator();
@@ -45,8 +51,6 @@ Future<void> _afterAuthSuccess(
   if (!ctx.mounted) return;
 
   if (userId == null) {
-    // No se pudo confirmar el usuario; ir a Home de todas formas
-    // en vez de dejar a la persona atorada en una pantalla en blanco.
     Navigator.pushReplacementNamed(ctx, '/home');
     return;
   }
@@ -67,10 +71,6 @@ Future<void> _afterAuthSuccess(
 }
 
 /// Primera pantalla que se muestra al abrir la app.
-/// Revisa si hay una sesión guardada:
-///   - Si hay tokens guardados y el perfil carga bien → cuenta el login de
-///     hoy para la racha y entra directo a Home (sin pedir login otra vez).
-///   - Si no hay sesión, o los tokens ya expiraron → manda a /login.
 class _SplashGate extends StatefulWidget {
   const _SplashGate();
 
@@ -94,7 +94,6 @@ class _SplashGateState extends State<_SplashGate> {
       return;
     }
 
-    // Inyecta los tokens guardados en el cliente HTTP compartido.
     sl<ApiClient>().setTokens(
       accessToken: session.accessToken,
       refreshToken: session.refreshToken,
@@ -107,7 +106,6 @@ class _SplashGateState extends State<_SplashGate> {
       final userId = userVm.profile?.id;
       if (userId == null) throw Exception('Perfil no disponible');
 
-      // Cuenta el login de hoy para la racha de lectura.
       await StreakService.registerVisit(userId);
 
       if (!mounted) return;
@@ -121,8 +119,6 @@ class _SplashGateState extends State<_SplashGate> {
         Navigator.pushReplacementNamed(context, '/kb-survey', arguments: userId);
       }
     } catch (_) {
-      // El token guardado ya no sirve (expiró o fue revocado):
-      // limpiamos la sesión y regresamos a login.
       await SessionStorage.clear();
       sl<ApiClient>().clearTokens();
       if (!mounted) return;
@@ -154,6 +150,7 @@ class TintaApp extends StatelessWidget {
           return MaterialApp(
             title: 'Tinta',
             debugShowCheckedModeBanner: false,
+            navigatorObservers: [appRouteObserver],
             theme: theme.light(),
             darkTheme: theme.dark(),
             themeMode: ThemeMode.system,

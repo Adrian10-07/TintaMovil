@@ -184,7 +184,7 @@ class _GenerateButton extends StatelessWidget {
           width: 18,
           child: CircularProgressIndicator(strokeWidth: 2),
         )
-            : const Text('Generar recomendaciones'),
+            : const Text('Analizar y Estudiar'),
       ),
     );
   }

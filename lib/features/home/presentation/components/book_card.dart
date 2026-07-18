@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Tarjeta de libro individual en el catálogo.
 ///
-/// Muestra portada, título, autores y barra de progreso.
+/// Muestra portada, título y autores.
 /// Recibe un objeto [book] con las propiedades:
 ///   - title (String)
 ///   - authors (List<String>)
@@ -30,11 +30,8 @@ class BookCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              // ── Portada ───────────────────────────────────
               _BookThumbnail(thumbnailUrl: book.thumbnailUrl),
               const SizedBox(width: 14),
-
-              // ── Metadata ──────────────────────────────────
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,15 +51,10 @@ class BookCard extends StatelessWidget {
                         color: colorScheme.onSurface.withOpacity(0.50),
                       ),
                     ),
-                    const SizedBox(height: 10),
-
-                    // Barra de progreso (UI decorativa)
-                    _ReadingProgress(colorScheme: colorScheme),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,
@@ -75,10 +67,6 @@ class BookCard extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-widgets internos
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _BookThumbnail extends StatelessWidget {
   final String? thumbnailUrl;
@@ -129,49 +117,6 @@ class _BookPlaceholder extends StatelessWidget {
       child: const Center(
         child: Text('📖', style: TextStyle(fontSize: 24)),
       ),
-    );
-  }
-}
-
-class _ReadingProgress extends StatelessWidget {
-  final ColorScheme colorScheme;
-
-  const _ReadingProgress({required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Progreso',
-              style: textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurface.withOpacity(0.40),
-              ),
-            ),
-            Text(
-              '0%',
-              style: textTheme.labelSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: 0,
-            minHeight: 5,
-          ),
-        ),
-      ],
     );
   }
 }
