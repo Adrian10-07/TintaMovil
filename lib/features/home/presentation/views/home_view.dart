@@ -13,6 +13,7 @@ import '../../../../features/recommendations/presentation/views/upload_book_view
 import '../../../../features/recommendations/presentation/views/recommendations_view.dart';
 import '../../../../features/document_viewer/presentation/views/pdf_results_view.dart';
 import 'all_books_view.dart';
+import '../../../notifications/presentation/views/notifications_view.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../components/currently_reading_book.dart';
@@ -78,7 +79,24 @@ class _HomeViewState extends State<HomeView> with RouteAware {
     if (userId != null) {
       widget.viewModel.loadStreak(userId);
       widget.viewModel.loadCurrentlyReading(userId);
+      widget.viewModel.loadUnreadNotifications(userId);
     }
+  }
+
+  void _onNotificationTap() {
+    final userId = context.read<UserViewModel>().profile?.id;
+    if (userId == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NotificationsView(userId: userId),
+      ),
+    ).then((_) {
+      // Al regresar de la bandeja, refresca el conteo (ya se marcaron
+      // como leídas al abrirla).
+      widget.viewModel.loadUnreadNotifications(userId);
+    });
   }
 
   void _onScroll() {
@@ -240,7 +258,8 @@ class _HomeViewState extends State<HomeView> with RouteAware {
           child: Column(
             children: [
               HomeAppBar(
-                onNotificationTap: () {},
+                hasNotifications: widget.viewModel.hasUnreadNotifications,
+                onNotificationTap: _onNotificationTap,
               ),
               Expanded(
                 child: ListenableBuilder(

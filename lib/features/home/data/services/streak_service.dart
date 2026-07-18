@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../notifications/data/services/notification_service.dart';
 
 /// Resultado de calcular/actualizar la racha de un usuario.
 class StreakResult {
@@ -38,6 +39,7 @@ class StreakService {
     final lastLogin = lastLoginStr != null ? DateTime.parse(lastLoginStr) : null;
 
     int streak = prefs.getInt(_streakKey(userId)) ?? 0;
+    final previousStreak = streak;
 
     if (lastLogin == null) {
       streak = 1;
@@ -55,6 +57,19 @@ class StreakService {
 
     await prefs.setString(_lastLoginKey(userId), today.toIso8601String());
     await prefs.setInt(_streakKey(userId), streak);
+
+    // Notificación real cuando la racha efectivamente subió respecto al
+    // último valor guardado (no en visitas repetidas el mismo día).
+    if (streak > previousStreak && streak > 0) {
+      final unidad = streak == 1 ? 'día' : 'días';
+      await NotificationService.add(
+        userId,
+        type: 'streak',
+        title: '¡Felicidades! 🔥',
+        body: 'Llevas $streak $unidad de racha de lectura seguidos.',
+        id: 'streak_${userId}_${today.toIso8601String()}',
+      );
+    }
 
     final completedDays = await _registerDayInWeek(prefs, userId, today);
 

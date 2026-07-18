@@ -4,6 +4,7 @@ import '../../domain/repositories/book_repository.dart';
 import '../../data/services/streak_service.dart';
 import '../../../reader/data/services/reading_library_service.dart';
 import '../components/currently_reading_book.dart';
+import '../../../notifications/data/services/notification_service.dart';
 
 enum HomeState { initial, loadingInitial, success, error }
 
@@ -128,6 +129,16 @@ class HomeViewModel extends ChangeNotifier {
   Future<void> removeFromCurrentlyReading(String userId, String bookId) async {
     await ReadingLibraryService.remove(userId, bookId);
     await loadCurrentlyReading(userId);
+  }
+
+  // ── Notificaciones ─────────────────────────────────────────────────────
+  int _unreadNotifications = 0;
+  int get unreadNotifications => _unreadNotifications;
+  bool get hasUnreadNotifications => _unreadNotifications > 0;
+
+  Future<void> loadUnreadNotifications(String userId) async {
+    _unreadNotifications = await NotificationService.getUnreadCount(userId);
+    notifyListeners();
   }
 
   Future<void> selectCategory(BookCategory category) async {

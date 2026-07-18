@@ -15,7 +15,7 @@ class HomeAppBar extends StatelessWidget {
     this.greeting = 'Buenas tardes 👋',
     this.title = 'Catálogo Tinta',
     this.avatarInitial = 'A',
-    this.hasNotifications = true,
+    this.hasNotifications = false,
     this.onNotificationTap,
     this.onUploadTap,
     this.onRecommendationsTap,

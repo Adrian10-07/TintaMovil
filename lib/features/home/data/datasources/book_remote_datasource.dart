@@ -43,4 +43,21 @@ class BookRemoteDataSource {
     final Map<String, dynamic> jsonData = json.decode(response.body);
     return GutendexBookModel.parsePage(jsonData);
   }
+
+  /// Busca libros por título/autor en Gutendex. Se usa, por ejemplo, para
+  /// intentar encontrar un EPUB legible de un libro que salió en
+  /// "Te puede interesar" (que puede venir de otra fuente sin EPUB).
+  Future<GutendexPage> searchBooks(String query) async {
+    final uri = Uri.parse(
+      'https://gutendex.com/books/?search=${Uri.encodeQueryComponent(query)}',
+    );
+    final response = await http.get(uri).timeout(const Duration(seconds: 15));
+
+    if (response.statusCode != 200) {
+      throw Exception('Gutendex respondió ${response.statusCode}');
+    }
+
+    final Map<String, dynamic> jsonData = json.decode(response.body);
+    return GutendexBookModel.parsePage(jsonData);
+  }
 }

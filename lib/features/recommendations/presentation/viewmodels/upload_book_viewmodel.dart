@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/datasources/recommendation_upload_datasource.dart';
 import '../../../reader/data/services/reading_library_service.dart';
+import '../../../notifications/data/services/notification_service.dart';
 
 enum UploadState { idle, picking, uploading, success, error }
 
@@ -68,6 +69,34 @@ class UploadBookViewModel extends ChangeNotifier {
       _recomendacionesGeneradas = n;
       _state = UploadState.success;
 
+      final titulo = _fileNameFrom(_selectedFile!.path);
+
+      // Notificación de que el libro/documento se subió y analizó con
+      // éxito, sin importar cuántas recomendaciones haya encontrado.
+      await NotificationService.add(
+        userId,
+        type: 'upload',
+        title: 'Documento subido',
+        body: '"$titulo" se analizó correctamente y ya puedes leerlo.',
+      );
+
+      if (n > 0) {
+        await NotificationService.add(
+          userId,
+          type: 'recommendation',
+          title: 'Nuevas recomendaciones te pueden interesar',
+          body: n == 1
+              ? 'Encontramos 1 recomendación basada en "$titulo".'
+              : 'Encontramos $n recomendaciones basadas en "$titulo".',
+        );
+      }
+
+      // No hay lector real para PDFs subidos, así que no hay progreso de
+      // lectura verdadero que trackear. Como aproximación, se usa el
+      // número de recomendaciones generadas por el análisis ML sobre un
+      // total esperado de 5 como referencia, para que el documento
+      // aparezca en "Leyendo actualmente" con un % representativo del
+      // avance del análisis (no de páginas leídas).
       const totalEsperado = 5;
       await ReadingLibraryService.upsert(
         userId,

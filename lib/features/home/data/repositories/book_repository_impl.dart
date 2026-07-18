@@ -17,4 +17,9 @@ class BookRepositoryImpl implements BookRepository {
   Future<GutendexPage> fetchMoreBooks({String? pageUrl}) async {
     return await remoteDataSource.fetchMoreBooks(pageUrl: pageUrl);
   }
+
+  @override
+  Future<GutendexPage> searchBooks(String query) async {
+    return await remoteDataSource.searchBooks(query);
+  }
 }

@@ -8,4 +8,8 @@ abstract class BookRepository {
   /// catálogo. [pageUrl] es la URL de "siguiente página" devuelta por la
   /// llamada anterior; null pide la primera página.
   Future<GutendexPage> fetchMoreBooks({String? pageUrl});
+
+  /// Busca libros por título/autor en Gutendex (para encontrar un EPUB
+  /// legible de un libro recomendado que no está en nuestro catálogo).
+  Future<GutendexPage> searchBooks(String query);
 }
