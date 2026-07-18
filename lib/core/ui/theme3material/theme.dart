@@ -107,14 +107,12 @@ class MaterialTheme {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // TIPOGRAFÍA TINTA
   // Plus Jakarta Sans (display, headline, title) + DM Sans (body, label)
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static TextTheme get tintaTextTheme {
     return const TextTheme(
-      // ── Display: títulos hero ─────────────────────────────────────
+      // ── Display: títulos hero
       displayLarge: TextStyle(
         fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w800,
@@ -137,7 +135,7 @@ class MaterialTheme {
         letterSpacing: -0.3,
       ),
 
-      // ── Headline: secciones ───────────────────────────────────────
+      //Headline: secciones
       headlineLarge: TextStyle(
         fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w800,
@@ -158,7 +156,7 @@ class MaterialTheme {
         height: 1.33,
       ),
 
-      // ── Title: cards, componentes ─────────────────────────────────
+      //Title: cards, componentes
       titleLarge: TextStyle(
         fontFamily: 'PlusJakartaSans',
         fontWeight: FontWeight.w700,
@@ -180,7 +178,7 @@ class MaterialTheme {
         letterSpacing: 0.1,
       ),
 
-      // ── Body: cuerpo de texto legible ─────────────────────────────
+      //  Body: cuerpo de texto legible
       bodyLarge: TextStyle(
         fontFamily: 'DMSans',
         fontWeight: FontWeight.w400,
@@ -203,7 +201,7 @@ class MaterialTheme {
         letterSpacing: 0.4,
       ),
 
-      // ── Label: botones, badges ────────────────────────────────────
+      //  Label: botones, badges
       labelLarge: TextStyle(
         fontFamily: 'DMSans',
         fontWeight: FontWeight.w600,
@@ -228,17 +226,13 @@ class MaterialTheme {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // THEME BUILDERS
-  // ═══════════════════════════════════════════════════════════════════════════
 
   ThemeData light() => theme(lightScheme());
 
   ThemeData dark() => theme(darkScheme());
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // THEME CONSTRUCTOR — Aplica tipografía + estilos de componentes
-  // ═══════════════════════════════════════════════════════════════════════════
 
   ThemeData theme(ColorScheme colorScheme) {
     final tt = tintaTextTheme.apply(
@@ -254,7 +248,7 @@ class MaterialTheme {
       scaffoldBackgroundColor: colorScheme.surface,
       canvasColor: colorScheme.surface,
 
-      // ── AppBar ──────────────────────────────────────────────────────
+      //AppBar
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
@@ -266,7 +260,7 @@ class MaterialTheme {
         ),
       ),
 
-      // ── ElevatedButton ──────────────────────────────────────────────
+      //ElevatedButton
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: colorScheme.primary,
@@ -287,7 +281,7 @@ class MaterialTheme {
         ),
       ),
 
-      // ── TextButton ──────────────────────────────────────────────────
+      //TextButton
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: colorScheme.primary,

@@ -32,7 +32,7 @@ class HomeViewModel extends ChangeNotifier {
   BookCategory _selectedCategory = BookCategory.all;
   BookCategory get selectedCategory => _selectedCategory;
 
-  // El catálogo curado es local y pequeño — no hay scroll infinito.
+  // El catálogo curado es local y pequeño
   bool get hasMoreItems => false;
 
   Future<void> selectCategory(BookCategory category) async {
@@ -41,8 +41,7 @@ class HomeViewModel extends ChangeNotifier {
     await loadInitialCatalog('');
   }
 
-  /// El parámetro query se mantiene por compatibilidad con la firma anterior,
-  /// pero no se usa: el catálogo curado se filtra solo por categoría.
+
   Future<void> loadInitialCatalog(String query) async {
     _state = HomeState.loadingInitial;
     _errorMessage = null;

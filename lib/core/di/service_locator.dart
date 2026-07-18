@@ -53,15 +53,13 @@ final sl = GetIt.instance;
 const String _tutorAiBaseUrl = 'https://tutor-ai-production-c85c.up.railway.app';
 
 
-// FLAG DE DESARROLLO: Cambiar a `false` para usar el modelo real en un
-// teléfono físico ARM64. En emuladores x86_64 fllama puede no funcionar.
 const bool _useMockLlmForEmulator = true;
 
 void setupServiceLocator() {
-  // ── CORE ────────────────────────────────────────────────────────────────
+  //CORE
   sl.registerLazySingleton<ApiClient>(() => ApiClient());
 
-  // ── AUTH ────────────────────────────────────────────────────────────────
+  //AUTH
   sl.registerLazySingleton<AuthRemoteDataSource>(
         () => AuthRemoteDataSource(sl()),
   );
@@ -74,7 +72,7 @@ void setupServiceLocator() {
         () => AuthViewModel(sl(), sl()),
   );
 
-  // ── HOME ────────────────────────────────────────────────────────────────
+  //HOME
   sl.registerLazySingleton<BookRemoteDataSource>(
         () => BookRemoteDataSource(),
   );
@@ -87,7 +85,7 @@ void setupServiceLocator() {
         () => HomeViewModel(sl()),
   );
 
-  // ── USER ────────────────────────────────────────────────────────────────
+  //USER
   sl.registerLazySingleton<UserRemoteDataSource>(
         () => UserRemoteDataSource(sl()),
   );
@@ -100,7 +98,7 @@ void setupServiceLocator() {
         () => UserViewModel(sl()),
   );
 
-  // ── READER ──────────────────────────────────────────────────────────────
+  // READER
   sl.registerLazySingleton<ReaderRemoteDataSource>(
         () => ReaderRemoteDataSource(sl()),
   );
@@ -113,10 +111,10 @@ void setupServiceLocator() {
         () => ReaderViewModel(sl()),
   );
 
-  // ── KNOWLEDGE BASE ──────────────────────────────────────────────────────
+  //KNOWLEDGE BASE
   registerKnowledgeBase();
 
-  // ── TUTOR AI ────────────────────────────────────────────────────────────
+  //TUTOR AI
   registerTutorAi();
 }
 
@@ -159,7 +157,7 @@ void registerTutorAi() {
     ),
   );
 
-  // ── NUEVO: modo remoto ──────────────────────────────────────────
+  //modo remoto
   sl.registerLazySingleton<SseClient>(() => SseClient());
 
   sl.registerLazySingleton<RemoteTutorDatasource>(

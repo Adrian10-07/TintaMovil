@@ -7,10 +7,7 @@ import '../../domain/entities/document_chunk.dart';
 import '../../domain/entities/indexed_document.dart';
 
 /// Datasource SQLite para persistir la base de conocimientos local.
-///
-/// Tablas:
-///   - `indexed_documents`: metadatos de documentos ya procesados.
-///   - `document_chunks`: fragmentos de texto con sus vectores TF-IDF.
+
 class KnowledgeLocalDatasource {
   static const String _dbName = 'tinta_knowledge.db';
   static const int _dbVersion = 1;
@@ -62,7 +59,7 @@ class KnowledgeLocalDatasource {
     );
   }
 
-  // ── Documentos ─────────────────────────────────────────────────────
+  //Documentos
 
   /// Verifica si un documento ya fue indexado.
   Future<bool> isDocumentIndexed(String hash) async {
