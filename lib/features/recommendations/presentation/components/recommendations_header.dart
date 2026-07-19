@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 class RecommendationsHeader extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback? onPrivacyTap;
+  final bool showBackButton;
 
   const RecommendationsHeader({
     Key? key,
     required this.onBack,
     this.onPrivacyTap,
+    this.showBackButton = true,
   }) : super(key: key);
 
   @override
@@ -21,11 +23,14 @@ class RecommendationsHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, size: 22),
-            onPressed: onBack,
-          ),
-          const SizedBox(width: 4),
+          if (showBackButton) ...[
+            IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, size: 22),
+              onPressed: onBack,
+            ),
+            const SizedBox(width: 4),
+          ] else
+            const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

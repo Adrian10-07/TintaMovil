@@ -7,27 +7,30 @@ import '../../../../core/presentation/components/tinta_background.dart';
 import '../components/home_app_bar.dart';
 import '../components/streak_card.dart';
 import '../components/book_card.dart';
-import '../components/tinta_bottom_nav.dart';
 import '../../../../features/home/domain/entities/book.dart';
-import '../../../../features/recommendations/presentation/views/upload_book_view.dart';
-import '../../../../features/recommendations/presentation/views/recommendations_view.dart';
 import '../../../../features/document_viewer/presentation/views/pdf_results_view.dart';
 import 'all_books_view.dart';
 import '../../../notifications/presentation/views/notifications_view.dart';
-import '../../../../core/di/service_locator.dart';
 import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../components/currently_reading_book.dart';
 import '../components/currently_reading_section.dart';
 import '../../../../main.dart' show appRouteObserver;
+import '../../../../core/presentation/utils/page_transitions.dart';
 
 class HomeView extends StatefulWidget {
   final HomeViewModel viewModel;
   final String defaultQuery;
 
+  /// Cuando es true, esta vista se está usando como pestaña dentro de
+  /// [MainTabShell]: no dibuja su propio Scaffold ni barra inferior (esas
+  /// las pone el shell), y no maneja su propia navegación de pestañas.
+  final bool embedded;
+
   const HomeView({
     Key? key,
     required this.viewModel,
     required this.defaultQuery,
+    this.embedded = false,
   }) : super(key: key);
 
   @override
@@ -36,7 +39,6 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> with RouteAware {
   final ScrollController _scrollController = ScrollController();
-  int _selectedNavIndex = 0;
 
   @override
   void initState() {
@@ -89,9 +91,7 @@ class _HomeViewState extends State<HomeView> with RouteAware {
 
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => NotificationsView(userId: userId),
-      ),
+      fadeSlideRoute(NotificationsView(userId: userId)),
     ).then((_) {
       // Al regresar de la bandeja, refresca el conteo (ya se marcaron
       // como leídas al abrirla).
@@ -113,12 +113,10 @@ class _HomeViewState extends State<HomeView> with RouteAware {
   void _onSeeAllTap() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => AllBooksView(
-          viewModel: widget.viewModel,
-          onBookTap: _onBookTap,
-        ),
-      ),
+      fadeSlideRoute(AllBooksView(
+        viewModel: widget.viewModel,
+        onBookTap: _onBookTap,
+      )),
     );
   }
 
@@ -143,7 +141,7 @@ class _HomeViewState extends State<HomeView> with RouteAware {
 
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => PdfResultsView(pdfFile: file)),
+        fadeSlideRoute(PdfResultsView(pdfFile: file)),
       );
       return;
     }
@@ -188,94 +186,46 @@ class _HomeViewState extends State<HomeView> with RouteAware {
     }
   }
 
-  Future<void> _onUploadTap() async {
-    final userVm = sl<UserViewModel>();
-
-    // Si el perfil aún no se cargó en esta sesión, lo pedimos al backend.
-    if (userVm.profile == null) {
-      await userVm.loadProfile();
-    }
-
-    final userId = userVm.profile?.id;
-    if (userId == null || userId.isEmpty) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo identificar tu usuario. Inicia sesión de nuevo.')),
-      );
-      return;
-    }
-
-    if (!context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => UploadBookView(userId: userId),
-      ),
-    );
-  }
-
-  void _onRecommendationsTap() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const RecommendationsView()),
-    );
-  }
-
-  void _onNavTap(int index) {
-    // Handle navigation for specific tabs
-    if (index == 1) {
-      // Explorar tab → navigate to recommendations
-      _onRecommendationsTap();
-    } else if (index == 2) {
-      // Estudio tab → navigate to upload book
-      _onUploadTap();
-    } else if (index == 4) {
-      // Yo tab → navigate to user profile
-      Navigator.pushNamed(context, '/user');
-      return;
-    }
-    setState(() => _selectedNavIndex = index);
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      body: TintaBackground(
-        blobs: [
-          BlobConfig(
-            top: -120, right: -80,
-            color: colorScheme.primary, size: 320, opacity: 0.10,
-          ),
-          BlobConfig(
-            top: 300, left: -60,
-            color: MaterialTheme.warmGold, size: 220, opacity: 0.08,
-          ),
-        ],
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              HomeAppBar(
-                hasNotifications: widget.viewModel.hasUnreadNotifications,
-                onNotificationTap: _onNotificationTap,
+    final content = TintaBackground(
+      blobs: [
+        BlobConfig(
+          top: -120, right: -80,
+          color: colorScheme.primary, size: 320, opacity: 0.10,
+        ),
+        BlobConfig(
+          top: 300, left: -60,
+          color: MaterialTheme.warmGold, size: 220, opacity: 0.08,
+        ),
+      ],
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            HomeAppBar(
+              hasNotifications: widget.viewModel.hasUnreadNotifications,
+              onNotificationTap: _onNotificationTap,
+            ),
+            Expanded(
+              child: ListenableBuilder(
+                listenable: widget.viewModel,
+                builder: (context, _) => _buildBody(),
               ),
-              Expanded(
-                child: ListenableBuilder(
-                  listenable: widget.viewModel,
-                  builder: (context, _) => _buildBody(),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-      bottomNavigationBar: TintaBottomNav(
-        currentIndex: _selectedNavIndex,
-        onTap: _onNavTap,
-      ),
     );
+
+    // Como pestaña del shell: sin Scaffold ni bottomNavigationBar propios
+    // (eso ya lo pone MainTabShell).
+    if (widget.embedded) return content;
+
+    // Uso independiente (fuera del shell): sigue funcionando solo.
+    return Scaffold(body: content);
   }
 
   Widget _buildBody() {

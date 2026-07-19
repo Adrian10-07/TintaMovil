@@ -12,7 +12,10 @@ import '../../../home/domain/entities/book.dart';
 /// Vista de recomendaciones: tarjetas con portada, título, autores,
 /// porcentaje de afinidad y el "por qué" de cada recomendación.
 class RecommendationsView extends StatefulWidget {
-  const RecommendationsView({Key? key}) : super(key: key);
+  /// Cuando es true, se usa como pestaña dentro de MainTabShell.
+  final bool embedded;
+
+  const RecommendationsView({Key? key, this.embedded = false}) : super(key: key);
 
   @override
   State<RecommendationsView> createState() => _RecommendationsViewState();
@@ -126,8 +129,6 @@ class _RecommendationsViewState extends State<RecommendationsView> {
         return b;
       }
     }
-    // Ninguno coincide de forma confiable con el título — mejor no
-    // abrir un libro que probablemente no sea el correcto.
     return null;
   }
 
@@ -158,6 +159,7 @@ class _RecommendationsViewState extends State<RecommendationsView> {
     return Scaffold(
       backgroundColor: _offWhite,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: _offWhite,
         elevation: 0,
         foregroundColor: _deepGreen,

@@ -19,18 +19,21 @@ import '../components/recent_documents_section.dart';
 
 /// Vista "Sube un libro" — el usuario elige un PDF y, al subirlo, el motor
 /// ML (Go) genera recomendaciones basadas en su contenido.
-///
-/// Es AUTOCONTENIDA: crea su propio ViewModel. Para mostrarla:
-///
-///   Navigator.push(context, MaterialPageRoute(
-///     builder: (_) => UploadBookView(userId: currentUser.id),
-///   ));
 class UploadBookView extends StatefulWidget {
   final String userId;
   final VoidCallback? onDone;
 
-  const UploadBookView({Key? key, required this.userId, this.onDone})
-      : super(key: key);
+  /// Cuando es true, se usa como pestaña dentro de MainTabShell — sin
+  /// botón de regreso en el header (no aplica: no hay a dónde "volver",
+  /// es una pestaña, no una pantalla apilada).
+  final bool embedded;
+
+  const UploadBookView({
+    Key? key,
+    required this.userId,
+    this.onDone,
+    this.embedded = false,
+  }) : super(key: key);
 
   @override
   State<UploadBookView> createState() => _UploadBookViewState();
@@ -61,8 +64,6 @@ class _UploadBookViewState extends State<UploadBookView> {
   UploadState? _lastKnownState;
 
   void _onViewModelChanged() {
-    // En cuanto termina de subir con éxito, recarga "Recientes" para que
-    // el documento recién analizado aparezca de inmediato.
     if (_viewModel.state == UploadState.success &&
         _lastKnownState != UploadState.success) {
       _loadRecentDocuments();
@@ -92,15 +93,13 @@ class _UploadBookViewState extends State<UploadBookView> {
     await _viewModel.generate(userId: widget.userId, questions: preguntas);
   }
 
-  /// Reabre el PDF real (con acceso al chat de tutor y recomendaciones),
-  /// tanto desde el botón "Chat" como al tocar la tarjeta completa.
   void _openDocument(RecentDocumentRecord record) {
     final file = File(record.path);
     if (!file.existsSync()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ese archivo ya no está disponible en el dispositivo.')),
       );
-      _loadRecentDocuments(); // se limpia solo de la lista
+      _loadRecentDocuments();
       return;
     }
 
@@ -163,6 +162,7 @@ class _UploadBookViewState extends State<UploadBookView> {
                 RecommendationsHeader(
                   onBack: () => Navigator.maybePop(context),
                   onPrivacyTap: _showPrivacyInfo,
+                  showBackButton: !widget.embedded,
                 ),
                 Expanded(
                   child: Consumer<UploadBookViewModel>(
@@ -224,18 +224,10 @@ class _UploadBookViewState extends State<UploadBookView> {
       pages: r.pages,
       sizeMb: r.sizeMb,
       type: DocumentType.pdf,
-      // El % que se muestra es una aproximación de "análisis completado"
-      // (recomendaciones encontradas / 5 como referencia), igual que en
-      // "Leyendo actualmente" — no es progreso de lectura real, ya que
-      // no medimos qué páginas has visto dentro del PDF.
       progress: (r.recommendationsCount / 5).clamp(0.0, 1.0),
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Campo de pregunta opcional
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _QuestionField extends StatelessWidget {
   final TextEditingController controller;
@@ -270,10 +262,6 @@ class _QuestionField extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Botón de generar
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _GenerateButton extends StatelessWidget {
   final UploadBookViewModel vm;
   final VoidCallback onTap;
@@ -299,10 +287,6 @@ class _GenerateButton extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Resultado / error
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ResultArea extends StatelessWidget {
   final UploadBookViewModel vm;

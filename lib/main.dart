@@ -6,7 +6,6 @@ import 'core/di/service_locator.dart';
 import 'core/ui/theme3material/theme.dart';
 
 import 'features/auth/presentation/viewmodels/auth_viewmodel.dart';
-import 'features/home/presentation/viewmodels/home_viewmodel.dart';
 import 'features/user/presentation/viewmodels/user_viewmodel.dart';
 import 'features/knowledge_base/data/datasources/knowledge_base_prefs.dart';
 import 'features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
@@ -16,11 +15,10 @@ import 'core/network/http_client.dart';
 
 import 'features/auth/presentation/views/login_view.dart';
 import 'features/auth/presentation/views/register_view.dart';
-import 'features/home/presentation/views/home_view.dart';
 import 'features/home/presentation/views/book_detail_view.dart';
 import 'features/reader/presentation/views/reader_view.dart';
-import 'features/user/presentation/views/user_view.dart';
 import 'features/knowledge_base/presentation/views/knowledge_base_survey_view.dart';
+import 'core/presentation/views/main_tab_shell.dart';
 
 /// Observer global de navegación. Permite que pantallas como Home se
 /// enteren cuando vuelven a quedar visibles tras un pop (por ejemplo, al
@@ -51,6 +49,8 @@ Future<void> _afterAuthSuccess(
   if (!ctx.mounted) return;
 
   if (userId == null) {
+    // No se pudo confirmar el usuario; ir a Home de todas formas
+    // en vez de dejar a la persona atorada en una pantalla en blanco.
     Navigator.pushReplacementNamed(ctx, '/home');
     return;
   }
@@ -71,6 +71,10 @@ Future<void> _afterAuthSuccess(
 }
 
 /// Primera pantalla que se muestra al abrir la app.
+/// Revisa si hay una sesión guardada:
+///   - Si hay tokens guardados y el perfil carga bien → cuenta el login de
+///     hoy para la racha y entra directo a Home (sin pedir login otra vez).
+///   - Si no hay sesión, o los tokens ya expiraron → manda a /login.
 class _SplashGate extends StatefulWidget {
   const _SplashGate();
 
@@ -94,6 +98,7 @@ class _SplashGateState extends State<_SplashGate> {
       return;
     }
 
+    // Inyecta los tokens guardados en el cliente HTTP compartido.
     sl<ApiClient>().setTokens(
       accessToken: session.accessToken,
       refreshToken: session.refreshToken,
@@ -106,6 +111,7 @@ class _SplashGateState extends State<_SplashGate> {
       final userId = userVm.profile?.id;
       if (userId == null) throw Exception('Perfil no disponible');
 
+      // Cuenta el login de hoy para la racha de lectura.
       await StreakService.registerVisit(userId);
 
       if (!mounted) return;
@@ -119,6 +125,8 @@ class _SplashGateState extends State<_SplashGate> {
         Navigator.pushReplacementNamed(context, '/kb-survey', arguments: userId);
       }
     } catch (_) {
+      // El token guardado ya no sirve (expiró o fue revocado):
+      // limpiamos la sesión y regresamos a login.
       await SessionStorage.clear();
       sl<ApiClient>().clearTokens();
       if (!mounted) return;
@@ -142,7 +150,6 @@ class TintaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<UserViewModel>(create: (_) => sl<UserViewModel>()),
-        ChangeNotifierProvider<HomeViewModel>(create: (_) => sl<HomeViewModel>()),
       ],
       child: Builder(
         builder: (context) {
@@ -193,13 +200,9 @@ class TintaApp extends StatelessWidget {
                   ),
                 );
               },
-              '/home': (ctx) => HomeView(
-                viewModel: ctx.read<HomeViewModel>(),
-                defaultQuery:'',
-              ),
+              '/home': (_) => const MainTabShell(),
               '/book-detail': (_) => const BookDetailView(),
               '/reader': (_) => const ReaderView(),
-              '/user': (_) => const UserView(),
             },
           );
         },
