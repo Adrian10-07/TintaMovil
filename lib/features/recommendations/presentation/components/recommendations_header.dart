@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
 /// Header de la vista "Sube un libro": título, subtítulo de privacidad,
-/// y un badge de candado indicando que el procesamiento es local.
+/// y un candado que explica qué pasa realmente con tu documento al tocarlo.
 class RecommendationsHeader extends StatelessWidget {
   final VoidCallback onBack;
-  const RecommendationsHeader({Key? key, required this.onBack})
-      : super(key: key);
+  final VoidCallback? onPrivacyTap;
+
+  const RecommendationsHeader({
+    Key? key,
+    required this.onBack,
+    this.onPrivacyTap,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +32,7 @@ class RecommendationsHeader extends StatelessWidget {
               children: [
                 Text('Mis documentos', style: textTheme.titleLarge),
                 Text(
-                  'Procesado localmente · Nunca se sube',
+                  'Subida segura · Toca el candado para detalles',
                   style: textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface.withOpacity(0.55),
                   ),
@@ -35,7 +40,7 @@ class RecommendationsHeader extends StatelessWidget {
               ],
             ),
           ),
-          _PrivacyBadge(colorScheme: colorScheme),
+          _PrivacyBadge(colorScheme: colorScheme, onTap: onPrivacyTap),
         ],
       ),
     );
@@ -44,21 +49,26 @@ class RecommendationsHeader extends StatelessWidget {
 
 class _PrivacyBadge extends StatelessWidget {
   final ColorScheme colorScheme;
-  const _PrivacyBadge({required this.colorScheme});
+  final VoidCallback? onTap;
+  const _PrivacyBadge({required this.colorScheme, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withOpacity(0.55),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Icon(
-        Icons.lock_outline_rounded,
-        size: 18,
-        color: colorScheme.primary,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer.withOpacity(0.55),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.lock_outline_rounded,
+          size: 18,
+          color: colorScheme.primary,
+        ),
       ),
     );
   }

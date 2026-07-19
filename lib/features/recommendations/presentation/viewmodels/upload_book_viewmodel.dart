@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../data/datasources/recommendation_upload_datasource.dart';
 import '../../../reader/data/services/reading_library_service.dart';
 import '../../../notifications/data/services/notification_service.dart';
+import '../../data/services/recent_documents_service.dart';
 
 enum UploadState { idle, picking, uploading, success, error }
 
@@ -70,6 +71,14 @@ class UploadBookViewModel extends ChangeNotifier {
       _state = UploadState.success;
 
       final titulo = _fileNameFrom(_selectedFile!.path);
+
+      // Guarda el documento con su metadata REAL (páginas leídas del PDF,
+      // tamaño en disco) para que "Recientes" no sea más un mock.
+      await RecentDocumentsService.registerUpload(
+        userId,
+        file: _selectedFile!,
+        recommendationsCount: n,
+      );
 
       // Notificación de que el libro/documento se subió y analizó con
       // éxito, sin importar cuántas recomendaciones haya encontrado.
