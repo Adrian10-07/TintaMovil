@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/settings/app_settings_controller.dart';
+import '../../../../core/localization/app_strings.dart';
 
 /// Pantalla "Apariencia" — elegir tema (Claro/Oscuro/Azul/Súper negro)
 /// y tamaño de texto. Cambia [AppSettingsController], que ya está
@@ -15,20 +16,23 @@ class AppearanceSettingsView extends StatelessWidget {
       animation: controller,
       builder: (context, _) {
         final colorScheme = Theme.of(context).colorScheme;
+        final t = AppStrings.of(context);
+
         return Scaffold(
-          appBar: AppBar(title: const Text('Apariencia')),
+          appBar: AppBar(title: Text(t.appearance)),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text('Tema', style: Theme.of(context).textTheme.titleMedium),
+              Text(t.theme, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 10),
               ...AppThemeOption.values.map((option) => _ThemeTile(
                 option: option,
+                language: controller.language,
                 selected: controller.theme == option,
                 onTap: () => controller.setTheme(option),
               )),
               const SizedBox(height: 24),
-              Text('Tamaño del texto', style: Theme.of(context).textTheme.titleMedium),
+              Text(t.textSize, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -41,7 +45,7 @@ class AppearanceSettingsView extends StatelessWidget {
                     return RadioListTile<AppTextSize>(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
-                        size.label,
+                        size.label(controller.language),
                         style: TextStyle(fontSize: 14 * size.scaleFactor),
                       ),
                       value: size,
@@ -57,7 +61,7 @@ class AppearanceSettingsView extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
-                  'Vista previa: así se ve el texto normal de la app.',
+                  t.previewText,
                   style: TextStyle(
                     fontSize: 14 * controller.textSize.scaleFactor,
                     color: colorScheme.onSurface.withOpacity(0.7),
@@ -74,10 +78,16 @@ class AppearanceSettingsView extends StatelessWidget {
 
 class _ThemeTile extends StatelessWidget {
   final AppThemeOption option;
+  final AppLanguage language;
   final bool selected;
   final VoidCallback onTap;
 
-  const _ThemeTile({required this.option, required this.selected, required this.onTap});
+  const _ThemeTile({
+    required this.option,
+    required this.language,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -104,10 +114,10 @@ class _ThemeTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(option.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(option.label(language), style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
                   Text(
-                    option.description,
+                    option.description(language),
                     style: TextStyle(
                       fontSize: 12,
                       color: colorScheme.onSurface.withOpacity(0.6),

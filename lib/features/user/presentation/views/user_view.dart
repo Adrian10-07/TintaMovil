@@ -13,6 +13,7 @@ import 'notification_settings_view.dart';
 import 'appearance_settings_view.dart';
 import 'privacy_control_view.dart';
 import 'help_support_view.dart';
+import '../../../../core/localization/app_strings.dart';
 
 /// Pantalla de perfil del usuario (Tab "Yo").
 ///
@@ -40,7 +41,7 @@ class _UserViewState extends State<UserView> {
       builder: (context, vm, _) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Mi perfil'),
+            title: Text(AppStrings.of(context).myProfile),
           ),
           body: TintaBackground(
             blobs: [
@@ -85,6 +86,7 @@ class _UserViewState extends State<UserView> {
 
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final t = AppStrings.of(context);
 
     return RefreshIndicator(
       onRefresh: vm.loadProfile,
@@ -139,7 +141,7 @@ class _UserViewState extends State<UserView> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Miembro desde ${_formatDate(profile.createdAt)}',
+                        '${t.memberSince} ${_formatDate(profile.createdAt)}',
                         style: textTheme.labelSmall?.copyWith(
                           color: colorScheme.primary,
                         ),
@@ -169,13 +171,13 @@ class _UserViewState extends State<UserView> {
             const SizedBox(height: 28),
 
             // ── Info de la cuenta ──────────────────────────────────
-            Text('Cuenta', style: textTheme.headlineSmall),
+            Text(t.account, style: textTheme.headlineSmall),
             const SizedBox(height: 14),
             _InfoCard(
               children: [
                 _InfoRow(
-                  label: 'Correo verificado',
-                  value: profile.emailVerified ? 'Sí' : 'No',
+                  label: t.emailVerified,
+                  value: profile.emailVerified ? t.yes : t.no,
                   icon: profile.emailVerified
                       ? Icons.verified_rounded
                       : Icons.warning_amber_rounded,
@@ -189,7 +191,7 @@ class _UserViewState extends State<UserView> {
                   indent: 56,
                 ),
                 _InfoRow(
-                  label: 'Idioma',
+                  label: t.idiomaLabel,
                   value: profile.language == 'es' ? 'Español' : 'English',
                   icon: Icons.language_rounded,
                 ),
@@ -198,13 +200,13 @@ class _UserViewState extends State<UserView> {
             const SizedBox(height: 32),
 
             // ── Configuración ──────────────────────────────────────
-            Text('Configuración', style: textTheme.headlineSmall),
+            Text(t.settings, style: textTheme.headlineSmall),
             const SizedBox(height: 8),
             _MenuSection(children: [
               ProfileMenuItem(
                 icon: Icons.notifications_outlined,
-                label: 'Notificaciones',
-                subtitle: 'Gestiona tus alertas de lectura',
+                label: t.notifications,
+                subtitle: t.notificationsSubtitle,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -214,8 +216,8 @@ class _UserViewState extends State<UserView> {
               ),
               ProfileMenuItem(
                 icon: Icons.palette_outlined,
-                label: 'Apariencia',
-                subtitle: 'Tema y tamaño del texto',
+                label: t.appearance,
+                subtitle: t.appearanceSubtitle,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -225,8 +227,8 @@ class _UserViewState extends State<UserView> {
               ),
               ProfileMenuItem(
                 icon: Icons.lock_outline_rounded,
-                label: 'Privacidad',
-                subtitle: 'Control de tus datos',
+                label: t.privacy,
+                subtitle: t.privacySubtitle,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -236,7 +238,7 @@ class _UserViewState extends State<UserView> {
               ),
               ProfileMenuItem(
                 icon: Icons.help_outline_rounded,
-                label: 'Ayuda y soporte',
+                label: t.helpSupport,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -246,7 +248,7 @@ class _UserViewState extends State<UserView> {
               ),
               ProfileMenuItem(
                 icon: Icons.logout_rounded,
-                label: 'Cerrar sesión',
+                label: t.logout,
                 iconColor: colorScheme.error,
                 showChevron: false,
                 onTap: () => _showLogoutDialog(context),
@@ -260,17 +262,16 @@ class _UserViewState extends State<UserView> {
   }
 
   void _showLogoutDialog(BuildContext context) {
+    final t = AppStrings.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text(
-          '¿Estás seguro de que quieres cerrar tu sesión en Tinta?',
-        ),
+        title: Text(t.logout),
+        content: Text(t.logoutConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
+            child: Text(t.cancel),
           ),
           TextButton(
             onPressed: () {
@@ -285,7 +286,7 @@ class _UserViewState extends State<UserView> {
               });
             },
             child: Text(
-              'Cerrar sesión',
+              t.logout,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.error,
               ),

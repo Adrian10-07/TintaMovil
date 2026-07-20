@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../notifications/data/services/notification_settings_service.dart';
+import '../../../../core/localization/app_strings.dart';
 
 /// Pantalla "Notificaciones" — enciende/apaga cada tipo de notificación
 /// in-app real que genera la app (racha, documentos subidos,
@@ -13,27 +14,6 @@ class NotificationSettingsView extends StatefulWidget {
 }
 
 class _NotificationSettingsViewState extends State<NotificationSettingsView> {
-  static const _types = [
-    (
-    type: 'streak',
-    title: 'Racha de lectura',
-    subtitle: 'Cuando subes de racha al abrir la app cada día.',
-    icon: Icons.local_fire_department_rounded,
-    ),
-    (
-    type: 'upload',
-    title: 'Documentos subidos',
-    subtitle: 'Cuando terminas de subir y analizar un PDF.',
-    icon: Icons.upload_file_rounded,
-    ),
-    (
-    type: 'recommendation',
-    title: 'Recomendaciones nuevas',
-    subtitle: 'Cuando el motor ML encuentra libros para ti.',
-    icon: Icons.auto_awesome_rounded,
-    ),
-  ];
-
   Map<String, bool>? _values;
 
   @override
@@ -44,8 +24,8 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
 
   Future<void> _load() async {
     final values = <String, bool>{};
-    for (final t in _types) {
-      values[t.type] = await NotificationSettingsService.isEnabled(widget.userId, t.type);
+    for (final type in ['streak', 'upload', 'recommendation']) {
+      values[type] = await NotificationSettingsService.isEnabled(widget.userId, type);
     }
     if (mounted) setState(() => _values = values);
   }
@@ -57,8 +37,16 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+
+    final types = [
+      (type: 'streak', title: t.notifStreak, subtitle: t.notifStreakSub, icon: Icons.local_fire_department_rounded),
+      (type: 'upload', title: t.notifUpload, subtitle: t.notifUploadSub, icon: Icons.upload_file_rounded),
+      (type: 'recommendation', title: t.notifRecommendation, subtitle: t.notifRecommendationSub, icon: Icons.auto_awesome_rounded),
+    ];
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Notificaciones')),
+      appBar: AppBar(title: Text(t.notifications)),
       body: _values == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -67,18 +55,18 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8, left: 4),
             child: Text(
-              'Elige qué te queremos avisar dentro de la app.',
+              t.notifChooseText,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
               ),
             ),
           ),
-          ..._types.map((t) => _NotificationSwitchTile(
-            icon: t.icon,
-            title: t.title,
-            subtitle: t.subtitle,
-            value: _values![t.type] ?? true,
-            onChanged: (v) => _toggle(t.type, v),
+          ...types.map((tp) => _NotificationSwitchTile(
+            icon: tp.icon,
+            title: tp.title,
+            subtitle: tp.subtitle,
+            value: _values![tp.type] ?? true,
+            onChanged: (v) => _toggle(tp.type, v),
           )),
         ],
       ),

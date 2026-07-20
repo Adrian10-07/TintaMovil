@@ -159,7 +159,7 @@ class _RecommendationsViewState extends State<RecommendationsView> {
     return Scaffold(
       backgroundColor: _offWhite,
       appBar: AppBar(
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: !widget.embedded,
         backgroundColor: _offWhite,
         elevation: 0,
         foregroundColor: _deepGreen,

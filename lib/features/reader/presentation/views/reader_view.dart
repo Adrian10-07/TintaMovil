@@ -10,6 +10,9 @@ import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../components/reader_app_bar.dart';
 import '../components/reader_loading_state.dart';
 import '../components/reader_error_state.dart';
+import '../components/translated_chapter_sheet.dart';
+import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
+import '../../../recommendations/presentation/views/recommendations_view.dart';
 
 class ReaderView extends StatefulWidget {
   const ReaderView({Key? key}) : super(key: key);
@@ -29,6 +32,8 @@ class _ReaderViewState extends State<ReaderView> {
 
   int _totalPages = 0;
   int _lastSavedPage = -1;
+  int _currentChapterIndex = 0;
+  List<dynamic> _chapters = const [];
 
   @override
   void didChangeDependencies() {
@@ -51,10 +56,11 @@ class _ReaderViewState extends State<ReaderView> {
 
       final documentFuture = EpubDocument.openFile(file);
 
-      // epub_view no tiene paginación real; usamos el número de capítulos
-      // como aproximación del total de "páginas" para el progreso.
+      // Se necesita el total de capítulos para calcular el % de progreso,
+      // y la lista completa para poder traducir el capítulo actual.
       final epubBook = await documentFuture;
-      _totalPages = epubBook.Chapters?.length ?? 0;
+      _chapters = epubBook.Chapters ?? [];
+      _totalPages = _chapters.length;
 
       final controller = EpubController(
         document: documentFuture,
@@ -67,9 +73,9 @@ class _ReaderViewState extends State<ReaderView> {
         });
       }
 
-      // Guarda una entrada inicial (página 0) para que el libro aparezca
-      // en "Leyendo actualmente" desde que se abre, no solo al avanzar
-      // (onChapterChanged no se dispara con la sola apertura).
+      // Guarda una entrada inicial (capítulo 0) para que el libro aparezca
+      // en "Leyendo actualmente" desde que se abre, no solo al cambiar de
+      // capítulo (onChapterChanged no se dispara con la sola apertura).
       debugPrint('[Reader] libro cargado: totalPages=$_totalPages');
       if (_totalPages > 0) {
         _lastSavedPage = 0;
@@ -108,6 +114,7 @@ class _ReaderViewState extends State<ReaderView> {
       pageNumber = null;
     }
     if (pageNumber == null || _totalPages == 0) return;
+    _currentChapterIndex = pageNumber;
     if (pageNumber == _lastSavedPage) return;
     _lastSavedPage = pageNumber;
 
@@ -126,7 +133,7 @@ class _ReaderViewState extends State<ReaderView> {
       return;
     }
 
-    debugPrint('[Reader] guardando progreso: userId=$userId bookId=${book.id} página=$pageNumber de $_totalPages');
+    debugPrint('[Reader] guardando progreso: userId=$userId bookId=${book.id} capítulo=$pageNumber de $_totalPages');
 
     await ReadingLibraryService.upsert(
       userId,
@@ -151,6 +158,49 @@ class _ReaderViewState extends State<ReaderView> {
     });
   }
 
+  /// Abre el panel de traducción del capítulo que se está leyendo ahora
+  /// mismo. Solo tiene sentido para libros de dominio público (todo el
+  /// catálogo de Tinta lo es), ya que traduce el texto completo.
+  void _onTranslateTap(Book book) {
+    if (_chapters.isEmpty || _currentChapterIndex >= _chapters.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Espera a que termine de cargar el capítulo.')),
+      );
+      return;
+    }
+
+    final chapter = _chapters[_currentChapterIndex];
+    String html = '';
+    String title = '';
+    try {
+      html = (chapter.HtmlContent as String?) ?? '';
+      title = (chapter.Title as String?)?.trim().replaceAll('\n', '') ?? '';
+    } catch (_) {
+      // Si el campo no existe con ese nombre exacto en esta versión del
+      // paquete, se cae aquí — mejor avisar claro que tronar.
+    }
+
+    if (html.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo leer el contenido de este capítulo para traducir.')),
+      );
+      return;
+    }
+
+    TranslatedChapterSheet.show(context, chapterTitle: title, chapterHtml: html);
+  }
+
+  void _onTutorChatTap(Book book) {
+    TutorChatSheet.show(context, documentContext: book.title);
+  }
+
+  void _onRecommendationsTap() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RecommendationsView()),
+    );
+  }
+
   @override
   void dispose() {
     _epubController?.dispose();
@@ -162,8 +212,32 @@ class _ReaderViewState extends State<ReaderView> {
     final book = ModalRoute.of(context)!.settings.arguments as Book;
 
     return Scaffold(
-      appBar: ReaderAppBar(book: book, controller: _epubController),
+      appBar: ReaderAppBar(
+        book: book,
+        controller: _epubController,
+        actions: _epubController == null
+            ? null
+            : [
+          IconButton(
+            tooltip: 'Traducir capítulo al español',
+            icon: const Icon(Icons.translate_rounded),
+            onPressed: () => _onTranslateTap(book),
+          ),
+          IconButton(
+            tooltip: 'Pregunta a Tinta AI',
+            icon: const Icon(Icons.auto_awesome_rounded),
+            onPressed: () => _onTutorChatTap(book),
+          ),
+        ],
+      ),
       body: _buildBody(book),
+      floatingActionButton: _epubController == null
+          ? null
+          : FloatingActionButton.extended(
+        onPressed: _onRecommendationsTap,
+        icon: const Icon(Icons.menu_book_rounded),
+        label: const Text('Te puede interesar'),
+      ),
     );
   }
 

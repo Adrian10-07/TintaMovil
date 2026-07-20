@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/localization/app_strings.dart';
 
 /// Pantalla "Ayuda y soporte" — preguntas frecuentes estáticas + un
 /// formulario de feedback que abre la app de correo del usuario con un
@@ -92,13 +93,14 @@ class _HelpSupportViewState extends State<HelpSupportView> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final t = AppStrings.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ayuda y soporte')),
+      appBar: AppBar(title: Text(t.helpSupport)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Preguntas frecuentes', style: Theme.of(context).textTheme.titleMedium),
+          Text(t.faq, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 10),
           const _FaqTile(
             question: '¿Puedo leer sin conexión a internet?',
@@ -117,7 +119,7 @@ class _HelpSupportViewState extends State<HelpSupportView> {
             answer: 'Sube un día cada vez que abres la app en un día consecutivo al anterior. Si te saltas un día, se reinicia.',
           ),
           const SizedBox(height: 28),
-          Text('Contáctanos', style: Theme.of(context).textTheme.titleMedium),
+          Text(t.contactUs, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
             'Manda tus dudas, reportes de errores o sugerencias — se abre tu app de correo con el mensaje ya listo.',
@@ -137,10 +139,10 @@ class _HelpSupportViewState extends State<HelpSupportView> {
           TextField(
             controller: _messageController,
             maxLines: 5,
-            decoration: const InputDecoration(
-              labelText: 'Tu mensaje',
+            decoration: InputDecoration(
+              labelText: t.yourMessage,
               hintText: 'Cuéntanos qué pasó o qué te gustaría ver en Tinta...',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
               alignLabelWithHint: true,
             ),
           ),
@@ -155,7 +157,7 @@ class _HelpSupportViewState extends State<HelpSupportView> {
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               )
                   : const Icon(Icons.email_rounded, size: 18),
-              label: const Text('Enviar por correo'),
+              label: Text(t.sendByEmail),
             ),
           ),
         ],

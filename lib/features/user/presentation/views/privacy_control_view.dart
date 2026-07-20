@@ -3,6 +3,7 @@ import '../../../reader/data/services/reading_library_service.dart';
 import '../../../reader/data/services/epub_download_service.dart';
 import '../../../notifications/data/services/notification_service.dart';
 import '../../../recommendations/data/services/recent_documents_service.dart';
+import '../../../../core/localization/app_strings.dart';
 
 /// Pantalla "Privacidad" — explica qué se guarda dónde, y da control real
 /// para borrar cada tipo de dato guardado localmente en el dispositivo.
@@ -66,9 +67,10 @@ class _PrivacyControlViewState extends State<PrivacyControlView> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final t = AppStrings.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Privacidad')),
+      appBar: AppBar(title: Text(t.privacy)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -85,11 +87,7 @@ class _PrivacyControlViewState extends State<PrivacyControlView> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Tu racha, historial de lectura, notificaciones y libros '
-                        'descargados se guardan solo en este dispositivo. Los '
-                        'PDF que subes para análisis sí viajan al servidor de '
-                        'Tinta por HTTPS (necesario para generar recomendaciones), '
-                        'pero nada de lo de aquí abajo se comparte con nadie más.',
+                    t.privacyIntro,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -97,52 +95,52 @@ class _PrivacyControlViewState extends State<PrivacyControlView> {
             ),
           ),
           const SizedBox(height: 20),
-          Text('Datos guardados en este dispositivo',
+          Text(t.dataStored,
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 10),
           _DataRow(
             icon: Icons.menu_book_rounded,
-            title: 'Libros descargados (caché)',
+            title: t.downloadedBooks,
             subtitle: _cacheSizeMb == null
-                ? 'Calculando...'
-                : '${_cacheSizeMb!.toStringAsFixed(1)} MB en el dispositivo',
-            actionLabel: 'Borrar',
+                ? '...'
+                : '${_cacheSizeMb!.toStringAsFixed(1)} MB',
+            actionLabel: t.delete,
             onAction: () => _confirmAndRun(
-              title: 'Borrar libros descargados',
-              message: 'Se borran las copias locales de los EPUB. La próxima vez que abras cada uno, se vuelve a descargar (necesitas conexión esa primera vez).',
+              title: t.downloadedBooks,
+              message: t.confirmDeleteBooks,
               action: () => EpubDownloadService.clearCache(),
             ),
           ),
           _DataRow(
             icon: Icons.auto_stories_rounded,
-            title: 'Historial de lectura',
-            subtitle: 'Progreso guardado de "Leyendo actualmente"',
-            actionLabel: 'Borrar',
+            title: t.readingHistory,
+            subtitle: t.currentlyReadingSubtitle,
+            actionLabel: t.delete,
             onAction: () => _confirmAndRun(
-              title: 'Borrar historial de lectura',
-              message: 'Se borra tu progreso guardado en todos los libros. No se puede deshacer.',
+              title: t.readingHistory,
+              message: t.confirmDeleteHistory,
               action: () => ReadingLibraryService.clearAll(widget.userId),
             ),
           ),
           _DataRow(
             icon: Icons.description_rounded,
-            title: 'Documentos recientes',
-            subtitle: 'Lista de PDFs subidos en Estudio',
-            actionLabel: 'Borrar',
+            title: t.recentDocuments,
+            subtitle: t.recentDocumentsSubtitle,
+            actionLabel: t.delete,
             onAction: () => _confirmAndRun(
-              title: 'Borrar documentos recientes',
-              message: 'Se borra la lista de "Recientes" (no borra los PDF de tu dispositivo, solo la lista dentro de Tinta).',
+              title: t.recentDocuments,
+              message: t.confirmDeleteDocuments,
               action: () => RecentDocumentsService.clearAll(widget.userId),
             ),
           ),
           _DataRow(
             icon: Icons.notifications_rounded,
-            title: 'Notificaciones',
-            subtitle: 'Historial de la bandeja de notificaciones',
-            actionLabel: 'Borrar',
+            title: t.notifications,
+            subtitle: t.notificationsHistorySubtitle,
+            actionLabel: t.delete,
             onAction: () => _confirmAndRun(
-              title: 'Borrar notificaciones',
-              message: 'Se borra tu bandeja de notificaciones completa.',
+              title: t.notifications,
+              message: t.confirmDeleteNotifications,
               action: () => NotificationService.clearAll(widget.userId),
             ),
           ),

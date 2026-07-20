@@ -1,34 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Idioma de la interfaz. Independiente del "language" que se guarda en
+/// el perfil del backend (ese es solo metadata de cuenta) — este es el
+/// que realmente cambia los textos que ves en pantalla.
+enum AppLanguage { es, en }
+
+extension AppLanguageLabel on AppLanguage {
+  String get label {
+    switch (this) {
+      case AppLanguage.es:
+        return 'Español';
+      case AppLanguage.en:
+        return 'English';
+    }
+  }
+
+  String get code {
+    switch (this) {
+      case AppLanguage.es:
+        return 'es';
+      case AppLanguage.en:
+        return 'en';
+    }
+  }
+}
+
 /// Temas disponibles en "Apariencia". "system" sigue el tema del
 /// dispositivo (claro/oscuro); los demás son selección explícita.
 enum AppThemeOption { light, dark, blue, superBlack }
 
 extension AppThemeOptionLabel on AppThemeOption {
-  String get label {
+  String label(AppLanguage lang) {
+    final es = lang == AppLanguage.es;
     switch (this) {
       case AppThemeOption.light:
-        return 'Claro';
+        return es ? 'Claro' : 'Light';
       case AppThemeOption.dark:
-        return 'Oscuro';
+        return es ? 'Oscuro' : 'Dark';
       case AppThemeOption.blue:
-        return 'Azul';
+        return es ? 'Azul' : 'Blue';
       case AppThemeOption.superBlack:
-        return 'Súper negro';
+        return es ? 'Súper negro' : 'Super black';
     }
   }
 
-  String get description {
+  String description(AppLanguage lang) {
+    final es = lang == AppLanguage.es;
     switch (this) {
       case AppThemeOption.light:
-        return 'Fondo blanco, para ambientes con buena luz.';
+        return es
+            ? 'Fondo blanco, para ambientes con buena luz.'
+            : 'White background, for well-lit environments.';
       case AppThemeOption.dark:
-        return 'Fondo oscuro estándar, cómodo de noche.';
+        return es
+            ? 'Fondo oscuro estándar, cómodo de noche.'
+            : 'Standard dark background, comfortable at night.';
       case AppThemeOption.blue:
-        return 'Variante con acento azul en vez de verde.';
+        return es
+            ? 'Variante con acento azul en vez de verde.'
+            : 'Variant with a blue accent instead of green.';
       case AppThemeOption.superBlack:
-        return 'Negro puro con texto gris — máximo contraste, ideal para pantallas OLED y lectura nocturna larga.';
+        return es
+            ? 'Negro puro con texto gris — máximo contraste, ideal para pantallas OLED y lectura nocturna larga.'
+            : 'Pure black with gray text — maximum contrast, ideal for OLED screens and long night reading.';
     }
   }
 
@@ -63,16 +98,17 @@ extension AppTextSizeValue on AppTextSize {
     }
   }
 
-  String get label {
+  String label(AppLanguage lang) {
+    final es = lang == AppLanguage.es;
     switch (this) {
       case AppTextSize.small:
-        return 'Pequeño';
+        return es ? 'Pequeño' : 'Small';
       case AppTextSize.normal:
-        return 'Normal';
+        return es ? 'Normal' : 'Normal';
       case AppTextSize.large:
-        return 'Grande';
+        return es ? 'Grande' : 'Large';
       case AppTextSize.extraLarge:
-        return 'Muy grande';
+        return es ? 'Muy grande' : 'Extra large';
     }
   }
 }
@@ -83,12 +119,16 @@ extension AppTextSizeValue on AppTextSize {
 class AppSettingsController extends ChangeNotifier {
   static const _themeKey = 'app_theme_option';
   static const _textSizeKey = 'app_text_size';
+  static const _languageKey = 'app_language';
 
   AppThemeOption _theme = AppThemeOption.light;
   AppThemeOption get theme => _theme;
 
   AppTextSize _textSize = AppTextSize.normal;
   AppTextSize get textSize => _textSize;
+
+  AppLanguage _language = AppLanguage.es;
+  AppLanguage get language => _language;
 
   bool _loaded = false;
   bool get loaded => _loaded;
@@ -104,6 +144,11 @@ class AppSettingsController extends ChangeNotifier {
     final sizeIndex = prefs.getInt(_textSizeKey);
     if (sizeIndex != null && sizeIndex < AppTextSize.values.length) {
       _textSize = AppTextSize.values[sizeIndex];
+    }
+
+    final langIndex = prefs.getInt(_languageKey);
+    if (langIndex != null && langIndex < AppLanguage.values.length) {
+      _language = AppLanguage.values[langIndex];
     }
 
     _loaded = true;
@@ -122,5 +167,12 @@ class AppSettingsController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_textSizeKey, size.index);
+  }
+
+  Future<void> setLanguage(AppLanguage language) async {
+    _language = language;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_languageKey, language.index);
   }
 }
