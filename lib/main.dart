@@ -19,6 +19,7 @@ import 'features/home/presentation/views/book_detail_view.dart';
 import 'features/reader/presentation/views/reader_view.dart';
 import 'features/knowledge_base/presentation/views/knowledge_base_survey_view.dart';
 import 'core/presentation/views/main_tab_shell.dart';
+import 'core/settings/app_settings_controller.dart';
 
 /// Observer global de navegación. Permite que pantallas como Home se
 /// enteren cuando vuelven a quedar visibles tras un pop (por ejemplo, al
@@ -26,9 +27,15 @@ import 'core/presentation/views/main_tab_shell.dart';
 /// hayan apilado encima.
 final RouteObserver<PageRoute> appRouteObserver = RouteObserver<PageRoute>();
 
+/// Controlador global de apariencia (tema + tamaño de texto). Se carga
+/// una sola vez antes de arrancar la app para que no haya parpadeo entre
+/// el tema por defecto y el que el usuario había elegido.
+final AppSettingsController appSettings = AppSettingsController();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupServiceLocator();
+  await appSettings.load();
   runApp(const TintaApp());
 }
 
@@ -150,59 +157,95 @@ class TintaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<UserViewModel>(create: (_) => sl<UserViewModel>()),
+        ChangeNotifierProvider<AppSettingsController>.value(value: appSettings),
       ],
       child: Builder(
         builder: (context) {
-          final theme = MaterialTheme(Theme.of(context).textTheme);
-          return MaterialApp(
-            title: 'Tinta',
-            debugShowCheckedModeBanner: false,
-            navigatorObservers: [appRouteObserver],
-            theme: theme.light(),
-            darkTheme: theme.dark(),
-            themeMode: ThemeMode.system,
-            initialRoute: '/splash',
-            routes: {
-              '/splash': (_) => const _SplashGate(),
-              '/login': (_) => ChangeNotifierProvider<AuthViewModel>(
-                create: (_) => sl<AuthViewModel>(),
-                child: Builder(
-                  builder: (ctx) => LoginView(
-                    viewModel: ctx.read<AuthViewModel>(),
-                    onNavigateToRegister: () => Navigator.pushNamed(ctx, '/register'),
-                    onLoginSuccess: () => _afterAuthSuccess(ctx),
-                  ),
-                ),
-              ),
-              '/register': (_) => ChangeNotifierProvider<AuthViewModel>(
-                create: (_) => sl<AuthViewModel>(),
-                child: Builder(
-                  builder: (ctx) => RegisterView(
-                    viewModel: ctx.read<AuthViewModel>(),
-                    onNavigateToLogin: () => Navigator.pop(ctx),
-                    onRegisterSuccess: () =>
-                        _afterAuthSuccess(ctx, isNewAccount: true),
-                  ),
-                ),
-              ),
-              '/kb-survey': (ctx) {
-                final userId =
-                ModalRoute.of(ctx)!.settings.arguments as String;
-                return ChangeNotifierProvider<KnowledgeBaseSurveyViewModel>(
-                  create: (_) => sl<KnowledgeBaseSurveyViewModel>(),
-                  child: Builder(
-                    builder: (innerCtx) => KnowledgeBaseSurveyView(
-                      viewModel: innerCtx.read<KnowledgeBaseSurveyViewModel>(),
-                      userId: userId,
-                      onDone: () =>
-                          Navigator.pushReplacementNamed(innerCtx, '/home'),
+          return AnimatedBuilder(
+            animation: appSettings,
+            builder: (context, _) {
+              final theme = MaterialTheme(MaterialTheme.tintaTextTheme);
+
+              ThemeData selectedTheme;
+              switch (appSettings.theme) {
+                case AppThemeOption.light:
+                  selectedTheme = theme.light();
+                  break;
+                case AppThemeOption.dark:
+                  selectedTheme = theme.dark();
+                  break;
+                case AppThemeOption.blue:
+                  selectedTheme = theme.blue();
+                  break;
+                case AppThemeOption.superBlack:
+                  selectedTheme = theme.superBlack();
+                  break;
+              }
+
+              return MaterialApp(
+                title: 'Tinta',
+                debugShowCheckedModeBanner: false,
+                navigatorObservers: [appRouteObserver],
+                theme: selectedTheme,
+                // Selección explícita del usuario, no depende del tema
+                // del sistema — por eso theme==darkTheme siempre.
+                darkTheme: selectedTheme,
+                themeMode: ThemeMode.light,
+                // Aplica el tamaño de texto elegido en Apariencia a TODA
+                // la app, sin tener que tocar cada widget de texto.
+                builder: (context, child) {
+                  final mediaQuery = MediaQuery.of(context);
+                  return MediaQuery(
+                    data: mediaQuery.copyWith(
+                      textScaler: TextScaler.linear(appSettings.textSize.scaleFactor),
+                    ),
+                    child: child!,
+                  );
+                },
+                initialRoute: '/splash',
+                routes: {
+                  '/splash': (_) => const _SplashGate(),
+                  '/login': (_) => ChangeNotifierProvider<AuthViewModel>(
+                    create: (_) => sl<AuthViewModel>(),
+                    child: Builder(
+                      builder: (ctx) => LoginView(
+                        viewModel: ctx.read<AuthViewModel>(),
+                        onNavigateToRegister: () => Navigator.pushNamed(ctx, '/register'),
+                        onLoginSuccess: () => _afterAuthSuccess(ctx),
+                      ),
                     ),
                   ),
-                );
-              },
-              '/home': (_) => const MainTabShell(),
-              '/book-detail': (_) => const BookDetailView(),
-              '/reader': (_) => const ReaderView(),
+                  '/register': (_) => ChangeNotifierProvider<AuthViewModel>(
+                    create: (_) => sl<AuthViewModel>(),
+                    child: Builder(
+                      builder: (ctx) => RegisterView(
+                        viewModel: ctx.read<AuthViewModel>(),
+                        onNavigateToLogin: () => Navigator.pop(ctx),
+                        onRegisterSuccess: () =>
+                            _afterAuthSuccess(ctx, isNewAccount: true),
+                      ),
+                    ),
+                  ),
+                  '/kb-survey': (ctx) {
+                    final userId =
+                    ModalRoute.of(ctx)!.settings.arguments as String;
+                    return ChangeNotifierProvider<KnowledgeBaseSurveyViewModel>(
+                      create: (_) => sl<KnowledgeBaseSurveyViewModel>(),
+                      child: Builder(
+                        builder: (innerCtx) => KnowledgeBaseSurveyView(
+                          viewModel: innerCtx.read<KnowledgeBaseSurveyViewModel>(),
+                          userId: userId,
+                          onDone: () =>
+                              Navigator.pushReplacementNamed(innerCtx, '/home'),
+                        ),
+                      ),
+                    );
+                  },
+                  '/home': (_) => const MainTabShell(),
+                  '/book-detail': (_) => const BookDetailView(),
+                  '/reader': (_) => const ReaderView(),
+                },
+              );
             },
           );
         },

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'notification_settings_service.dart';
 
 /// Una notificación in-app. No son push notifications del sistema
 /// operativo — es una bandeja dentro de la app, persistida localmente
@@ -83,6 +84,11 @@ class NotificationService {
         required String body,
         String? id,
       }) async {
+    // Respeta lo que el usuario configuró en Notificaciones (Perfil >
+    // Notificaciones). Si desactivó este tipo, no se crea nada.
+    final enabled = await NotificationSettingsService.isEnabled(userId, type);
+    if (!enabled) return;
+
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_key(userId)) ?? [];
     final items = raw
@@ -125,5 +131,12 @@ class NotificationService {
       _key(userId),
       items.map((n) => json.encode(n.toJson())).toList(),
     );
+  }
+
+  /// Borra todas las notificaciones del usuario (Perfil > Privacidad >
+  /// "Borrar notificaciones").
+  static Future<void> clearAll(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key(userId));
   }
 }

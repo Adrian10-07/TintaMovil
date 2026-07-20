@@ -8,6 +8,11 @@ import '../components/user_avatar.dart';
 import '../components/profile_menu_item.dart';
 import '../components/edit_profile_sheet.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../main.dart' show appSettings;
+import 'notification_settings_view.dart';
+import 'appearance_settings_view.dart';
+import 'privacy_control_view.dart';
+import 'help_support_view.dart';
 
 /// Pantalla de perfil del usuario (Tab "Yo").
 ///
@@ -200,24 +205,44 @@ class _UserViewState extends State<UserView> {
                 icon: Icons.notifications_outlined,
                 label: 'Notificaciones',
                 subtitle: 'Gestiona tus alertas de lectura',
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NotificationSettingsView(userId: profile.id),
+                  ),
+                ),
               ),
               ProfileMenuItem(
                 icon: Icons.palette_outlined,
                 label: 'Apariencia',
                 subtitle: 'Tema y tamaño del texto',
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AppearanceSettingsView(controller: appSettings),
+                  ),
+                ),
               ),
               ProfileMenuItem(
                 icon: Icons.lock_outline_rounded,
                 label: 'Privacidad',
                 subtitle: 'Control de tus datos',
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PrivacyControlView(userId: profile.id),
+                  ),
+                ),
               ),
               ProfileMenuItem(
                 icon: Icons.help_outline_rounded,
                 label: 'Ayuda y soporte',
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => HelpSupportView(userEmail: profile.email),
+                  ),
+                ),
               ),
               ProfileMenuItem(
                 icon: Icons.logout_rounded,

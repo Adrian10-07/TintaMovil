@@ -64,8 +64,6 @@ class RecentDocumentsService {
       pages = document.pages.count;
       document.dispose();
     } catch (_) {
-      // Si el PDF viene corrupto o protegido, no truena el flujo — solo
-      // se guarda con páginas en 0.
       pages = 0;
     }
 
@@ -136,6 +134,14 @@ class RecentDocumentsService {
       _key(userId),
       records.map((r) => json.encode(r.toJson())).toList(),
     );
+  }
+
+  /// Borra el registro de todos los documentos recientes del usuario
+  /// (Perfil > Privacidad > "Borrar documentos recientes"). No borra los
+  /// archivos PDF en sí, solo la lista de "Recientes".
+  static Future<void> clearAll(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key(userId));
   }
 
   static String _fileNameFrom(String path) {
