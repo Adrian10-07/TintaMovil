@@ -33,11 +33,6 @@ import '../../features/tutorAI/data/repositories/tutor_repository_impl.dart';
 import '../../features/tutorAI/domain/repositories/tutor_repository.dart';
 import '../../features/tutorAI/presentation/viewmodels/tutor_chat_viewmodel.dart';
 
-import '/core/network/sse_client.dart';
-import '../../features/tutorAI/data/datasources/remote_tutor_datasource.dart';
-import '../../features/tutorAI/data/repositories/document_registry_impl.dart';
-import '../../features/tutorAI/domain/repositories/document_registry.dart';
-
 // Knowledge Base
 import '../../features/knowledge_base/data/datasources/knowledge_local_datasource.dart';
 import '../../features/knowledge_base/data/repositories/knowledge_repository_impl.dart';
@@ -48,18 +43,26 @@ import '../../features/knowledge_base/domain/repositories/knowledge_repository.d
 
 import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
 
+// Clubs
+import '../../features/clubs/data/datasources/club_remote_datasource.dart';
+import '../../features/clubs/data/datasources/club_local_datasource.dart';
+import '../../features/clubs/data/repositories/club_repository_impl.dart';
+import '../../features/clubs/data/services/moderation_service.dart';
+import '../../features/clubs/data/services/websocket_service.dart';
+import '../../features/clubs/domain/repositories/club_repository.dart';
+import '../../features/clubs/presentation/viewmodels/clubs_viewmodel.dart';
+
 final sl = GetIt.instance;
 
-const String _tutorAiBaseUrl = 'https://tutor-ai-production-c85c.up.railway.app';
-
-
-const bool _useMockLlmForEmulator = true;
+// FLAG DE DESARROLLO: Cambiar a `false` para usar el modelo real en un
+// teléfono físico ARM64. En emuladores x86_64 fllama puede no funcionar.
+const bool _useMockLlmForEmulator = false;
 
 void setupServiceLocator() {
-  //CORE
+  // ── CORE ────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<ApiClient>(() => ApiClient());
 
-  //AUTH
+  // ── AUTH ────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<AuthRemoteDataSource>(
         () => AuthRemoteDataSource(sl()),
   );
@@ -72,7 +75,7 @@ void setupServiceLocator() {
         () => AuthViewModel(sl(), sl()),
   );
 
-  //HOME
+  // ── HOME ────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<BookRemoteDataSource>(
         () => BookRemoteDataSource(),
   );
@@ -85,7 +88,7 @@ void setupServiceLocator() {
         () => HomeViewModel(sl()),
   );
 
-  //USER
+  // ── USER ────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<UserRemoteDataSource>(
         () => UserRemoteDataSource(sl()),
   );
@@ -98,7 +101,7 @@ void setupServiceLocator() {
         () => UserViewModel(sl()),
   );
 
-  // READER
+  // ── READER ──────────────────────────────────────────────────────────────
   sl.registerLazySingleton<ReaderRemoteDataSource>(
         () => ReaderRemoteDataSource(sl()),
   );
@@ -111,24 +114,56 @@ void setupServiceLocator() {
         () => ReaderViewModel(sl()),
   );
 
-  //KNOWLEDGE BASE
+  // ── CLUBS ─────────────────────────────────────────────────────────────
+  registerClubs();
+
+  // ── KNOWLEDGE BASE ──────────────────────────────────────────────────────
   registerKnowledgeBase();
 
-  //TUTOR AI
+  // ── TUTOR AI ────────────────────────────────────────────────────────────
   registerTutorAi();
+}
+
+void registerClubs() {
+  sl.registerLazySingleton<ClubRemoteDataSource>(
+        () => ClubRemoteDataSource(sl()),
+  );
+
+  sl.registerLazySingleton<ClubLocalDataSource>(
+        () => ClubLocalDataSource(),
+  );
+
+  sl.registerLazySingleton<ModerationService>(
+        () => ModerationService(),
+  );
+
+  sl.registerLazySingleton<WebSocketService>(
+        () => WebSocketService(),
+  );
+
+  sl.registerLazySingleton<ClubRepository>(
+        () => ClubRepositoryImpl(
+      remote: sl(),
+      local: sl(),
+    ),
+  );
+
+  sl.registerLazySingleton<ClubsViewModel>(
+        () => ClubsViewModel(sl()),
+  );
 }
 
 void registerKnowledgeBase() {
   sl.registerLazySingleton<PdfTextExtractor>(() => PdfTextExtractor());
   sl.registerLazySingleton<TextChunker>(() => TextChunker());
   sl.registerLazySingleton<TfidfEngine>(() => TfidfEngine());
-  
+
   sl.registerLazySingleton<KnowledgeLocalDatasource>(
-    () => KnowledgeLocalDatasource(),
+        () => KnowledgeLocalDatasource(),
   );
 
   sl.registerLazySingleton<KnowledgeRepository>(
-    () => KnowledgeRepositoryImpl(
+        () => KnowledgeRepositoryImpl(
       pdfExtractor: sl(),
       chunker: sl(),
       tfidfEngine: sl(),
@@ -138,8 +173,6 @@ void registerKnowledgeBase() {
 }
 
 void registerTutorAi() {
-  // Los datasources originales de tu compañero se mantienen registrados
-  // por si activan el modo offline después. NO se están usando activamente.
   sl.registerLazySingleton<TutorLlmDatasource>(
         () => _useMockLlmForEmulator
         ? MockTutorDatasource()
@@ -147,7 +180,9 @@ void registerTutorAi() {
   );
 
   sl.registerLazySingleton<TutorRepository>(
-        () => TutorRepositoryImpl(sl<TutorLlmDatasource>()),
+        () => TutorRepositoryImpl(
+      sl<TutorLlmDatasource>(),
+    ),
   );
 
   sl.registerLazySingleton<TutorChatViewModel>(
@@ -155,20 +190,5 @@ void registerTutorAi() {
       sl<TutorRepository>(),
       sl<KnowledgeRepository>(),
     ),
-  );
-
-  //modo remoto
-  sl.registerLazySingleton<SseClient>(() => SseClient());
-
-  sl.registerLazySingleton<RemoteTutorDatasource>(
-        () => RemoteTutorDatasource(
-      baseUrl: _tutorAiBaseUrl,
-      apiClient: sl<ApiClient>(),
-      sseClient: sl<SseClient>(),
-    ),
-  );
-
-  sl.registerLazySingleton<DocumentRegistry>(
-        () => DocumentRegistryImpl(),
   );
 }

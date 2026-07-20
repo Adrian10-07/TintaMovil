@@ -14,6 +14,7 @@ import '../../../../core/di/service_locator.dart';
 import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../components/currently_reading_book.dart';
 import '../components/currently_reading_section.dart';
+import '../../../../features/clubs/presentation/views/clubs_list_view.dart';
 
 class HomeView extends StatefulWidget {
   final HomeViewModel viewModel;
@@ -102,6 +103,13 @@ class _HomeViewState extends State<HomeView> {
     } else if (index == 2) {
       // Estudio tab → navigate to upload book
       _onUploadTap();
+    } else if (index == 3) {
+      // Club tab → navigate to clubs
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const Scaffold(body: ClubsListView())),
+      );
+      return;
     } else if (index == 4) {
       // Yo tab → navigate to user profile
       Navigator.pushNamed(context, '/user');
