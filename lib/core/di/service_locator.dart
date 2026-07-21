@@ -27,7 +27,7 @@ import '../../features/reader/domain/repositories/reader_repository.dart';
 import '../../features/reader/presentation/viewmodels/reader_viewmodel.dart';
 
 // Tutor AI
-import '../../features/tutorAI/data/datasources/llama_cpp_tutor_datasource.dart';
+import '../../features/tutorAI/data/datasources/gemma_flutter_tutor_datasource.dart';
 import '../../features/tutorAI/data/datasources/tutor_llm_datasource.dart';
 import '../../features/tutorAI/data/repositories/tutor_repository_impl.dart';
 import '../../features/tutorAI/domain/repositories/tutor_repository.dart';
@@ -55,7 +55,8 @@ const String _tutorAiBaseUrl = 'https://tutor-ai-production-c85c.up.railway.app'
 
 // FLAG DE DESARROLLO: Cambiar a `false` para usar el modelo real en un
 // teléfono físico ARM64. En emuladores x86_64 fllama puede no funcionar.
-const bool _useMockLlmForEmulator = true;
+const bool _useMockLlmForEmulator = false;
+const String _huggingFaceToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
 void setupServiceLocator() {
   // ── CORE ────────────────────────────────────────────────────────────────
@@ -145,7 +146,9 @@ void registerTutorAi() {
   sl.registerLazySingleton<TutorLlmDatasource>(
         () => _useMockLlmForEmulator
         ? MockTutorDatasource()
-        : LlamaCppTutorDatasource(),
+        : GemmaFlutterTutorDatasource(
+            huggingFaceToken: _huggingFaceToken,
+        ),
   );
 
   sl.registerLazySingleton<TutorRepository>(

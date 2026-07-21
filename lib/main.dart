@@ -15,9 +15,15 @@ import 'features/home/presentation/views/home_view.dart';
 import 'features/home/presentation/views/book_detail_view.dart';
 import 'features/reader/presentation/views/reader_view.dart';
 import 'features/user/presentation/views/user_view.dart';
+import 'package:flutter_gemma/core/api/flutter_gemma.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterGemma.initialize(
+    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+    maxDownloadRetries: 10,
+  );
   setupServiceLocator();
   runApp(const TintaApp());
 }

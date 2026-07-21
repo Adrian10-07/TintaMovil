@@ -15,19 +15,12 @@ import '../../../tutorAI/domain/entities/remote_document.dart';
 import '../../../tutorAI/domain/repositories/document_registry.dart';
 import '../../../tutorAI/presentation/components/document_indexing_screen.dart';
 import '../../../tutorAI/presentation/views/remote_tutor_chat_sheet.dart';
+import 'package:tinta/core/network/connectivity_checker.dart';
+import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
 
-/// Visor de PDF con integración al tutor IA en modo REMOTO.
-///
-/// Flujo:
-///   1. Al abrir el PDF, calcula su hash SHA-256.
-///   2. Consulta el DocumentRegistry local:
-///      - Si el hash ya existe: usa el document_id guardado.
-///      - Si no: sube el PDF al backend en background y guarda hash→id.
-///   3. Hace polling cada 3 seg hasta que el backend termine de indexarlo.
-///   4. Cuando el usuario toca ✨:
-///      - Si está `ready`: abre RemoteTutorChatSheet con RAG.
-///      - Si está `processing`: abre sheet con pantalla de espera.
-///      - Si está `failed`: opción de reintentar.
+final _connectivityChecker = ConnectivityChecker();
+
+
 class PdfResultsView extends StatefulWidget {
   final File pdfFile;
 
@@ -172,16 +165,41 @@ class _PdfResultsViewState extends State<PdfResultsView> {
   // UI
   // ══════════════════════════════════════════════════════════════════
 
-  void _openTutorChat() {
+  void _openTutorChat() async {
+    // Mostrar feedback inmediato mientras se verifica conectividad, para que
+    // el usuario no sienta que el botón no respondió (la verificación puede
+    // tardar hasta 2 segundos si no hay red).
+    _showLoadingSnackbar('Abriendo tutor…');
+
+    final hasInternet = await _connectivityChecker.hasInternet();
+
+    if (!mounted) return;
+
+    if (hasInternet) {
+      _openRemoteTutorChatFlow();
+    } else {
+      _openLocalTutorChatFlow();
+    }
+  }
+
+  void _openLocalTutorChatFlow() {
+    TutorChatSheet.show(
+      context,
+      documentContext: _fileName,
+    );
+  }
+
+  void _openRemoteTutorChatFlow() {
     final doc = _remoteDocument;
 
-    // Sin doc → mostrar mensaje: aún subiendo
+    // Sin documento subido aún (o falló la subida) → cae a local en vez de
+    // dejar al usuario esperando indefinidamente. Es preferible una
+    // respuesta sin RAG del documento a no responder nada.
     if (doc == null) {
-      _showLoadingSnackbar('El tutor se está preparando…');
+      _openLocalTutorChatFlow();
       return;
     }
 
-    // Doc listo → abrir chat con RAG
     if (doc.isReady) {
       RemoteTutorChatSheet.show(
         context,
@@ -191,7 +209,36 @@ class _PdfResultsViewState extends State<PdfResultsView> {
       return;
     }
 
-    // Doc procesando o fallido → abrir sheet de espera
+    // Documento aún procesando o falló → sheet de espera (ya existente).
+    _showIndexingSheet(doc);
+  }
+
+  void _openLocalTutorChat() {
+    TutorChatSheet.show(
+      context,
+      documentContext: _fileName,
+    );
+  }
+
+// Rama remota preservada para cuando implementemos el modo híbrido real.
+// ignore: unused_element
+  void _openRemoteTutorChat() {
+    final doc = _remoteDocument;
+
+    if (doc == null) {
+      _showLoadingSnackbar('El tutor se está preparando…');
+      return;
+    }
+
+    if (doc.isReady) {
+      RemoteTutorChatSheet.show(
+        context,
+        documentContext: _fileName,
+        remoteDocumentId: doc.id,
+      );
+      return;
+    }
+
     _showIndexingSheet(doc);
   }
 
