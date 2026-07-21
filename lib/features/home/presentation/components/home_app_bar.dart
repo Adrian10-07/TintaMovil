@@ -95,18 +95,27 @@ class _Avatar extends StatelessWidget {
     return Container(
       width: 42,
       height: 42,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        gradient: MaterialTheme.avatarGradient,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Center(
-        child: Text(
-          initial,
-          style: const TextStyle(
-            color: Colors.white,
-            fontFamily: 'PlusJakartaSans',
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
+      child: Image.asset(
+        'assets/icon/icon.png',
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          decoration: BoxDecoration(
+            gradient: MaterialTheme.avatarGradient,
+          ),
+          child: Center(
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: Colors.white,
+                fontFamily: 'PlusJakartaSans',
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+              ),
+            ),
           ),
         ),
       ),

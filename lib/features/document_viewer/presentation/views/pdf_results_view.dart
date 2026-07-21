@@ -7,6 +7,10 @@ import '../../../recommendations/domain/entities/recommendation.dart';
 import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
 import 'package:tinta/core/di/service_locator.dart';
 import 'package:tinta/core/network/http_client.dart';
+import '../../../home/data/services/streak_service.dart';
+import '../../../achievements/data/services/achievement_service.dart';
+import '../../../recommendations/data/services/recent_documents_service.dart';
+import '../../../user/presentation/viewmodels/user_viewmodel.dart';
 
 /// Vista del visor de documentos (feature: document_viewer).
 ///
@@ -39,6 +43,24 @@ class _PdfResultsViewState extends State<PdfResultsView> {
   void initState() {
     super.initState();
     _loadRecommendations();
+    _registerReadingActivity();
+  }
+
+  /// El visor de PDF también cuenta como "leer" para la racha — antes
+  /// solo se contaba con abrir sesión, ahora se cuenta al entrar de
+  /// verdad a un documento (EPUB o PDF).
+  Future<void> _registerReadingActivity() async {
+    final userVm = sl<UserViewModel>();
+    if (userVm.profile == null) {
+      await userVm.loadProfile();
+    }
+    final userId = userVm.profile?.id;
+    if (userId == null) return;
+
+    await StreakService.registerVisit(userId);
+
+    final uploads = await RecentDocumentsService.getAll(userId);
+    await AchievementService.checkUploads(userId, uploads.length);
   }
 
   Future<void> _loadRecommendations() async {

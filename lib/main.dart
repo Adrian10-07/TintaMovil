@@ -9,7 +9,6 @@ import 'features/auth/presentation/viewmodels/auth_viewmodel.dart';
 import 'features/user/presentation/viewmodels/user_viewmodel.dart';
 import 'features/knowledge_base/data/datasources/knowledge_base_prefs.dart';
 import 'features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
-import 'features/home/data/services/streak_service.dart';
 import 'core/network/session_storage.dart';
 import 'core/network/http_client.dart';
 
@@ -62,8 +61,9 @@ Future<void> _afterAuthSuccess(
     return;
   }
 
-  // Cuenta el login de hoy para la racha de lectura.
-  await StreakService.registerVisit(userId);
+  // Nota: la racha de lectura YA NO se cuenta aquí. Antes se contaba con
+  // solo iniciar sesión; ahora se cuenta en reader_view.dart / pdf_results_view.dart,
+  // justo cuando el usuario abre un libro o documento de verdad.
 
   final alreadyCompleted =
   isNewAccount ? false : await KnowledgeBasePrefs.isSurveyCompleted(userId);
@@ -79,8 +79,8 @@ Future<void> _afterAuthSuccess(
 
 /// Primera pantalla que se muestra al abrir la app.
 /// Revisa si hay una sesión guardada:
-///   - Si hay tokens guardados y el perfil carga bien → cuenta el login de
-///     hoy para la racha y entra directo a Home (sin pedir login otra vez).
+///   - Si hay tokens guardados y el perfil carga bien → entra directo a
+///     Home (sin pedir login otra vez).
 ///   - Si no hay sesión, o los tokens ya expiraron → manda a /login.
 class _SplashGate extends StatefulWidget {
   const _SplashGate();
@@ -118,8 +118,7 @@ class _SplashGateState extends State<_SplashGate> {
       final userId = userVm.profile?.id;
       if (userId == null) throw Exception('Perfil no disponible');
 
-      // Cuenta el login de hoy para la racha de lectura.
-      await StreakService.registerVisit(userId);
+      // La racha ya no se cuenta aquí (ver nota en _afterAuthSuccess).
 
       if (!mounted) return;
 

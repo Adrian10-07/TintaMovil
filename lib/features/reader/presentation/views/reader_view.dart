@@ -13,6 +13,8 @@ import '../components/reader_error_state.dart';
 import '../components/translated_chapter_sheet.dart';
 import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
 import '../../../recommendations/presentation/views/recommendations_view.dart';
+import '../../../home/data/services/streak_service.dart';
+import '../../../achievements/data/services/achievement_service.dart';
 
 class ReaderView extends StatefulWidget {
   const ReaderView({Key? key}) : super(key: key);
@@ -34,6 +36,7 @@ class _ReaderViewState extends State<ReaderView> {
   int _lastSavedPage = -1;
   int _currentChapterIndex = 0;
   List<dynamic> _chapters = const [];
+  bool _streakRegisteredThisSession = false;
 
   @override
   void didChangeDependencies() {
@@ -135,19 +138,35 @@ class _ReaderViewState extends State<ReaderView> {
 
     debugPrint('[Reader] guardando progreso: userId=$userId bookId=${book.id} capítulo=$pageNumber de $_totalPages');
 
-    await ReadingLibraryService.upsert(
-      userId,
-      ReadingLibraryEntry(
-        bookId: book.id,
-        title: book.title,
-        author: book.authors.isNotEmpty ? book.authors.first : 'Autor desconocido',
-        currentPage: pageNumber,
-        totalPages: _totalPages,
-        lastReadAt: DateTime.now(),
-      ),
+    final entry = ReadingLibraryEntry(
+      bookId: book.id,
+      title: book.title,
+      author: book.authors.isNotEmpty ? book.authors.first : 'Autor desconocido',
+      currentPage: pageNumber,
+      totalPages: _totalPages,
+      lastReadAt: DateTime.now(),
     );
 
+    await ReadingLibraryService.upsert(userId, entry);
+
     debugPrint('[Reader] progreso guardado OK');
+
+    // La racha de lectura ahora se cuenta AQUÍ (al leer de verdad), no al
+    // iniciar sesión. Solo se registra una vez por sesión de lectura para
+    // no pegarle a SharedPreferences en cada cambio de capítulo.
+    if (!_streakRegisteredThisSession) {
+      _streakRegisteredThisSession = true;
+      await StreakService.registerVisit(userId);
+    }
+
+    // Si el libro llegó a >=98%, cuenta como terminado para los logros
+    // de "libros terminados".
+    if (entry.progress >= 0.98) {
+      final indexed = await ReadingLibraryService.getAllIndexed(userId);
+      final finishedCount =
+          indexed.values.where((e) => e.progress >= 0.98).length;
+      await AchievementService.checkBooksFinished(userId, finishedCount);
+    }
   }
 
   void _setError(String message) {

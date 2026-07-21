@@ -13,6 +13,9 @@ import 'notification_settings_view.dart';
 import 'appearance_settings_view.dart';
 import 'privacy_control_view.dart';
 import 'help_support_view.dart';
+import 'security_info_view.dart';
+import '../../../achievements/presentation/views/achievements_view.dart';
+import '../../../achievements/data/services/achievement_service.dart';
 import '../../../../core/localization/app_strings.dart';
 
 /// Pantalla de perfil del usuario (Tab "Yo").
@@ -27,12 +30,21 @@ class UserView extends StatefulWidget {
 }
 
 class _UserViewState extends State<UserView> {
+  int _achievementPoints = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<UserViewModel>().loadProfile();
+      context.read<UserViewModel>().loadProfile().then((_) => _loadAchievementPoints());
     });
+  }
+
+  Future<void> _loadAchievementPoints() async {
+    final userId = context.read<UserViewModel>().profile?.id;
+    if (userId == null) return;
+    final points = await AchievementService.getTotalPoints(userId);
+    if (mounted) setState(() => _achievementPoints = points);
   }
 
   @override
@@ -123,21 +135,50 @@ class _UserViewState extends State<UserView> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      // Badge de rol
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          profile.role.toUpperCase(),
-                          style: textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w700,
+                      // Badge de rol + nivel de lector (logros)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              profile.role.toUpperCase(),
+                              style: textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
-                        ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: MaterialTheme.warmGold.withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.military_tech_rounded,
+                                    size: 12, color: MaterialTheme.warmGold),
+                                const SizedBox(width: 3),
+                                Text(
+                                  AchievementService.levelFor(_achievementPoints).title,
+                                  style: textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -203,6 +244,28 @@ class _UserViewState extends State<UserView> {
             Text(t.settings, style: textTheme.headlineSmall),
             const SizedBox(height: 8),
             _MenuSection(children: [
+              ProfileMenuItem(
+                icon: Icons.emoji_events_outlined,
+                label: 'Logros',
+                subtitle: '$_achievementPoints puntos · ${AchievementService.levelFor(_achievementPoints).title}',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AchievementsView(userId: profile.id),
+                  ),
+                ).then((_) => _loadAchievementPoints()),
+              ),
+              ProfileMenuItem(
+                icon: Icons.shield_outlined,
+                label: 'Seguridad',
+                subtitle: 'Cómo protegemos tu cuenta',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SecurityInfoView(),
+                  ),
+                ),
+              ),
               ProfileMenuItem(
                 icon: Icons.notifications_outlined,
                 label: t.notifications,
@@ -276,7 +339,6 @@ class _UserViewState extends State<UserView> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // Implementar logout real usando sl ya que AuthViewModel no está en este árbol
               final authVM = sl<AuthViewModel>();
               authVM.logout().then((_) {
                 if (context.mounted) {
@@ -305,10 +367,6 @@ class _UserViewState extends State<UserView> {
     return '${months[date.month - 1]} ${date.year}';
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-widgets privados
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _InfoCard extends StatelessWidget {
   final List<Widget> children;
