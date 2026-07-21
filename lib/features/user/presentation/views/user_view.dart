@@ -8,6 +8,15 @@ import '../components/user_avatar.dart';
 import '../components/profile_menu_item.dart';
 import '../components/edit_profile_sheet.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../main.dart' show appSettings;
+import 'notification_settings_view.dart';
+import 'appearance_settings_view.dart';
+import 'privacy_control_view.dart';
+import 'help_support_view.dart';
+import 'security_info_view.dart';
+import '../../../achievements/presentation/views/achievements_view.dart';
+import '../../../achievements/data/services/achievement_service.dart';
+import '../../../../core/localization/app_strings.dart';
 
 /// Pantalla de perfil del usuario (Tab "Yo").
 ///
@@ -21,12 +30,21 @@ class UserView extends StatefulWidget {
 }
 
 class _UserViewState extends State<UserView> {
+  int _achievementPoints = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<UserViewModel>().loadProfile();
+      context.read<UserViewModel>().loadProfile().then((_) => _loadAchievementPoints());
     });
+  }
+
+  Future<void> _loadAchievementPoints() async {
+    final userId = context.read<UserViewModel>().profile?.id;
+    if (userId == null) return;
+    final points = await AchievementService.getTotalPoints(userId);
+    if (mounted) setState(() => _achievementPoints = points);
   }
 
   @override
@@ -35,7 +53,7 @@ class _UserViewState extends State<UserView> {
       builder: (context, vm, _) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Mi perfil'),
+            title: Text(AppStrings.of(context).myProfile),
           ),
           body: TintaBackground(
             blobs: [
@@ -80,6 +98,7 @@ class _UserViewState extends State<UserView> {
 
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final t = AppStrings.of(context);
 
     return RefreshIndicator(
       onRefresh: vm.loadProfile,
@@ -116,25 +135,54 @@ class _UserViewState extends State<UserView> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      // Badge de rol
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          profile.role.toUpperCase(),
-                          style: textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w700,
+                      // Badge de rol + nivel de lector (logros)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              profile.role.toUpperCase(),
+                              style: textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
-                        ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: MaterialTheme.warmGold.withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.military_tech_rounded,
+                                    size: 12, color: MaterialTheme.warmGold),
+                                const SizedBox(width: 3),
+                                Text(
+                                  AchievementService.levelFor(_achievementPoints).title,
+                                  style: textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Miembro desde ${_formatDate(profile.createdAt)}',
+                        '${t.memberSince} ${_formatDate(profile.createdAt)}',
                         style: textTheme.labelSmall?.copyWith(
                           color: colorScheme.primary,
                         ),
@@ -164,13 +212,13 @@ class _UserViewState extends State<UserView> {
             const SizedBox(height: 28),
 
             // ── Info de la cuenta ──────────────────────────────────
-            Text('Cuenta', style: textTheme.headlineSmall),
+            Text(t.account, style: textTheme.headlineSmall),
             const SizedBox(height: 14),
             _InfoCard(
               children: [
                 _InfoRow(
-                  label: 'Correo verificado',
-                  value: profile.emailVerified ? 'Sí' : 'No',
+                  label: t.emailVerified,
+                  value: profile.emailVerified ? t.yes : t.no,
                   icon: profile.emailVerified
                       ? Icons.verified_rounded
                       : Icons.warning_amber_rounded,
@@ -184,7 +232,7 @@ class _UserViewState extends State<UserView> {
                   indent: 56,
                 ),
                 _InfoRow(
-                  label: 'Idioma',
+                  label: t.idiomaLabel,
                   value: profile.language == 'es' ? 'Español' : 'English',
                   icon: Icons.language_rounded,
                 ),
@@ -193,35 +241,77 @@ class _UserViewState extends State<UserView> {
             const SizedBox(height: 32),
 
             // ── Configuración ──────────────────────────────────────
-            Text('Configuración', style: textTheme.headlineSmall),
+            Text(t.settings, style: textTheme.headlineSmall),
             const SizedBox(height: 8),
             _MenuSection(children: [
               ProfileMenuItem(
+                icon: Icons.emoji_events_outlined,
+                label: 'Logros',
+                subtitle: '$_achievementPoints puntos · ${AchievementService.levelFor(_achievementPoints).title}',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AchievementsView(userId: profile.id),
+                  ),
+                ).then((_) => _loadAchievementPoints()),
+              ),
+              ProfileMenuItem(
+                icon: Icons.shield_outlined,
+                label: 'Seguridad',
+                subtitle: 'Cómo protegemos tu cuenta',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SecurityInfoView(),
+                  ),
+                ),
+              ),
+              ProfileMenuItem(
                 icon: Icons.notifications_outlined,
-                label: 'Notificaciones',
-                subtitle: 'Gestiona tus alertas de lectura',
-                onTap: () {},
+                label: t.notifications,
+                subtitle: t.notificationsSubtitle,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NotificationSettingsView(userId: profile.id),
+                  ),
+                ),
               ),
               ProfileMenuItem(
                 icon: Icons.palette_outlined,
-                label: 'Apariencia',
-                subtitle: 'Tema y tamaño del texto',
-                onTap: () {},
+                label: t.appearance,
+                subtitle: t.appearanceSubtitle,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AppearanceSettingsView(controller: appSettings),
+                  ),
+                ),
               ),
               ProfileMenuItem(
                 icon: Icons.lock_outline_rounded,
-                label: 'Privacidad',
-                subtitle: 'Control de tus datos',
-                onTap: () {},
+                label: t.privacy,
+                subtitle: t.privacySubtitle,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PrivacyControlView(userId: profile.id),
+                  ),
+                ),
               ),
               ProfileMenuItem(
                 icon: Icons.help_outline_rounded,
-                label: 'Ayuda y soporte',
-                onTap: () {},
+                label: t.helpSupport,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => HelpSupportView(userEmail: profile.email),
+                  ),
+                ),
               ),
               ProfileMenuItem(
                 icon: Icons.logout_rounded,
-                label: 'Cerrar sesión',
+                label: t.logout,
                 iconColor: colorScheme.error,
                 showChevron: false,
                 onTap: () => _showLogoutDialog(context),
@@ -235,22 +325,20 @@ class _UserViewState extends State<UserView> {
   }
 
   void _showLogoutDialog(BuildContext context) {
+    final t = AppStrings.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text(
-          '¿Estás seguro de que quieres cerrar tu sesión en Tinta?',
-        ),
+        title: Text(t.logout),
+        content: Text(t.logoutConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
+            child: Text(t.cancel),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              // Implementar logout real usando sl ya que AuthViewModel no está en este árbol
               final authVM = sl<AuthViewModel>();
               authVM.logout().then((_) {
                 if (context.mounted) {
@@ -260,7 +348,7 @@ class _UserViewState extends State<UserView> {
               });
             },
             child: Text(
-              'Cerrar sesión',
+              t.logout,
               style: TextStyle(
                 color: Theme.of(context).colorScheme.error,
               ),
@@ -279,10 +367,6 @@ class _UserViewState extends State<UserView> {
     return '${months[date.month - 1]} ${date.year}';
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-widgets privados
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _InfoCard extends StatelessWidget {
   final List<Widget> children;

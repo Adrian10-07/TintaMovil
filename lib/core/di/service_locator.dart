@@ -26,13 +26,15 @@ import '../../features/reader/data/repositories/reader_repository_impl.dart';
 import '../../features/reader/domain/repositories/reader_repository.dart';
 import '../../features/reader/presentation/viewmodels/reader_viewmodel.dart';
 
-// Tutor AI
+// Tutor AI — local (Gemma)
 import '../../features/tutorAI/data/datasources/gemma_flutter_tutor_datasource.dart';
 import '../../features/tutorAI/data/datasources/tutor_llm_datasource.dart';
 import '../../features/tutorAI/data/repositories/tutor_repository_impl.dart';
 import '../../features/tutorAI/domain/repositories/tutor_repository.dart';
 import '../../features/tutorAI/presentation/viewmodels/tutor_chat_viewmodel.dart';
+import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
 
+// Tutor AI — remoto (RAG en Railway)
 import '/core/network/sse_client.dart';
 import '../../features/tutorAI/data/datasources/remote_tutor_datasource.dart';
 import '../../features/tutorAI/data/repositories/document_registry_impl.dart';
@@ -45,17 +47,18 @@ import '../../features/knowledge_base/data/services/pdf_text_extractor.dart';
 import '../../features/knowledge_base/data/services/text_chunker.dart';
 import '../../features/knowledge_base/data/services/tfidf_engine.dart';
 import '../../features/knowledge_base/domain/repositories/knowledge_repository.dart';
-
-import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
+import '../../features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
 
 final sl = GetIt.instance;
 
-const String _tutorAiBaseUrl = 'https://tutor-ai-production-c85c.up.railway.app';
+const String _tutorAiBaseUrl =
+    'https://tutor-ai-production-c85c.up.railway.app';
 
-
-// FLAG DE DESARROLLO: Cambiar a `false` para usar el modelo real en un
-// teléfono físico ARM64. En emuladores x86_64 fllama puede no funcionar.
+// FLAG DE DESARROLLO: Cambiar a `true` para usar el MockTutorDatasource
+// en vez del modelo real (útil en emulador x86_64, donde flutter_gemma
+// no tiene binarios nativos compatibles).
 const bool _useMockLlmForEmulator = false;
+
 const String _huggingFaceToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
 void setupServiceLocator() {
@@ -125,30 +128,37 @@ void registerKnowledgeBase() {
   sl.registerLazySingleton<PdfTextExtractor>(() => PdfTextExtractor());
   sl.registerLazySingleton<TextChunker>(() => TextChunker());
   sl.registerLazySingleton<TfidfEngine>(() => TfidfEngine());
-  
+
   sl.registerLazySingleton<KnowledgeLocalDatasource>(
-    () => KnowledgeLocalDatasource(),
+        () => KnowledgeLocalDatasource(),
   );
 
   sl.registerLazySingleton<KnowledgeRepository>(
-    () => KnowledgeRepositoryImpl(
+        () => KnowledgeRepositoryImpl(
       pdfExtractor: sl(),
       chunker: sl(),
       tfidfEngine: sl(),
       datasource: sl(),
     ),
   );
+
+  // Encuesta post-registro: qué bases de conocimiento descargar.
+  // registerFactory: nueva instancia cada vez que se abre la encuesta.
+  sl.registerFactory<KnowledgeBaseSurveyViewModel>(
+        () => KnowledgeBaseSurveyViewModel(sl<KnowledgeRepository>()),
+  );
 }
 
 void registerTutorAi() {
-  // Los datasources originales de tu compañero se mantienen registrados
-  // por si activan el modo offline después. NO se están usando activamente.
+  // Datasource activo del tutor local: Gemma 3 1B vía flutter_gemma.
+  // MockTutorDatasource se usa solo si _useMockLlmForEmulator = true
+  // (por ejemplo en emulador x86_64, donde flutter_gemma no corre).
   sl.registerLazySingleton<TutorLlmDatasource>(
         () => _useMockLlmForEmulator
         ? MockTutorDatasource()
         : GemmaFlutterTutorDatasource(
-            huggingFaceToken: _huggingFaceToken,
-        ),
+      huggingFaceToken: _huggingFaceToken,
+    ),
   );
 
   sl.registerLazySingleton<TutorRepository>(
@@ -162,7 +172,7 @@ void registerTutorAi() {
     ),
   );
 
-  // ── NUEVO: modo remoto ──────────────────────────────────────────
+  // ── Modo remoto (RAG en Railway) ─────────────────────────────────
   sl.registerLazySingleton<SseClient>(() => SseClient());
 
   sl.registerLazySingleton<RemoteTutorDatasource>(

@@ -3,16 +3,20 @@ import 'recent_document.dart';
 import 'recent_document_card.dart';
 
 /// Sección "Recientes": encabezado con contador de archivos + lista
-/// de RecentDocumentCard. Recibe la lista de documentos para que el
-/// padre decida la fuente (mock hoy, backend después).
+/// de RecentDocumentCard. Recibe la lista de documentos reales
+/// (RecentDocumentsService), ya no hay datos mock.
 class RecentDocumentsSection extends StatelessWidget {
   final List<RecentDocument> documents;
+  final void Function(RecentDocument)? onTap;
   final void Function(RecentDocument)? onChatTap;
+  final void Function(RecentDocument)? onDeleteTap;
 
   const RecentDocumentsSection({
     Key? key,
     required this.documents,
+    this.onTap,
     this.onChatTap,
+    this.onDeleteTap,
   }) : super(key: key);
 
   @override
@@ -20,7 +24,30 @@ class RecentDocumentsSection extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
 
-    if (documents.isEmpty) return const SizedBox.shrink();
+    if (documents.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.folder_open_rounded,
+                size: 32, color: colorScheme.onSurface.withOpacity(0.3)),
+            const SizedBox(height: 8),
+            Text(
+              'Todavía no has subido ningún documento.',
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.5),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,7 +74,9 @@ class RecentDocumentsSection extends StatelessWidget {
             child: RecentDocumentCard(
               document: doc,
               style: DocumentTypeStyle.forIndex(index, colorScheme),
+              onTap: () => onTap?.call(doc),
               onChatTap: () => onChatTap?.call(doc),
+              onDeleteTap: () => onDeleteTap?.call(doc),
             ),
           );
         }),

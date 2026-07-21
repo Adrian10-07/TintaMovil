@@ -10,12 +10,14 @@ class CurrentlyReadingSection extends StatelessWidget {
   final List<CurrentlyReadingBook> books;
   final VoidCallback? onSeeAllTap;
   final void Function(CurrentlyReadingBook)? onBookTap;
+  final void Function(CurrentlyReadingBook)? onBookLongPress;
 
   const CurrentlyReadingSection({
     Key? key,
     required this.books,
     this.onSeeAllTap,
     this.onBookTap,
+    this.onBookLongPress,
   }) : super(key: key);
 
   @override
@@ -60,8 +62,6 @@ class CurrentlyReadingSection extends StatelessWidget {
         const SizedBox(height: 12),
         SizedBox(
           height: 190,
-          // Scroll horizontal independiente: este carrusel NO hace
-          // scroll vertical, solo lateral entre los libros.
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -73,6 +73,7 @@ class CurrentlyReadingSection extends StatelessWidget {
               return CurrentlyReadingCard(
                 book: book,
                 onTap: () => onBookTap?.call(book),
+                onLongPress: () => onBookLongPress?.call(book),
               );
             },
           ),

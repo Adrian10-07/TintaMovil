@@ -48,3 +48,8 @@ app.*.map.json
 config.json*.task
 *.task
 config.json
+
+# Artefactos de build de CMake/NDK (llama_cpp_dart y similares)
+**/.cxx/
+**/android/.cxx/
+local_packages/**/android/.cxx/

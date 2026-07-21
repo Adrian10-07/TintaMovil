@@ -16,6 +16,10 @@ class Recommendation {
   final String? infoLink;
   final String? description;
 
+  /// Palabras clave que más pesaron al recomendar este libro (explica el
+  /// "por qué"). Puede venir vacía si el backend aún no la expone.
+  final List<String> matchedKeywords;
+
   Recommendation({
     required this.id,
     required this.bookId,
@@ -26,10 +30,18 @@ class Recommendation {
     this.thumbnailUrl,
     this.infoLink,
     this.description,
+    this.matchedKeywords = const [],
   });
 
   /// Afinidad legible (score 0..1 → 0..100).
   int get matchPercent => (score.clamp(0.0, 1.0) * 100).round();
+
+  /// Texto listo para mostrar en la UI, ej: "Coincide en: anatomía, huesos".
+  /// Devuelve null si no hay palabras clave que mostrar.
+  String? get matchReason {
+    if (matchedKeywords.isEmpty) return null;
+    return 'Coincide en: ${matchedKeywords.join(', ')}';
+  }
 
   factory Recommendation.fromJson(Map<String, dynamic> json) {
     final book = (json['book'] as Map<String, dynamic>?) ?? const {};
@@ -47,6 +59,7 @@ class Recommendation {
       book['thumbnail']?.toString().replaceAll('http://', 'https://'),
       infoLink: book['info_link']?.toString(),
       description: book['description']?.toString(),
+      matchedKeywords: List<String>.from(book['match_keywords'] ?? const []),
     );
   }
 }

@@ -7,6 +7,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 
 import 'package:tinta/core/di/service_locator.dart';
 import 'package:tinta/core/network/http_client.dart';
+import 'package:tinta/core/network/connectivity_checker.dart';
 
 import '../../../recommendations/data/datasources/recommendation_remote_datasource.dart';
 import '../../../recommendations/domain/entities/recommendation.dart';
@@ -15,12 +16,22 @@ import '../../../tutorAI/domain/entities/remote_document.dart';
 import '../../../tutorAI/domain/repositories/document_registry.dart';
 import '../../../tutorAI/presentation/components/document_indexing_screen.dart';
 import '../../../tutorAI/presentation/views/remote_tutor_chat_sheet.dart';
-import 'package:tinta/core/network/connectivity_checker.dart';
 import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
+
+// ── NUEVO (de Gael): racha, logros y documentos recientes ────────────
+import '../../../home/data/services/streak_service.dart';
+import '../../../achievements/data/services/achievement_service.dart';
+import '../../../recommendations/data/services/recent_documents_service.dart';
+import '../../../user/presentation/viewmodels/user_viewmodel.dart';
 
 final _connectivityChecker = ConnectivityChecker();
 
-
+/// Vista del visor de documentos (feature: document_viewer).
+///
+/// Muestra un PDF a pantalla completa con:
+///   - Botón ✨ en el AppBar → abre el chat con Tinta AI en modo híbrido
+///     (remoto con RAG si hay internet, local con Gemma si no).
+///   - FAB → abre el panel de recomendaciones relacionadas.
 class PdfResultsView extends StatefulWidget {
   final File pdfFile;
 
@@ -37,7 +48,7 @@ class _PdfResultsViewState extends State<PdfResultsView> {
   List<Recommendation>? _items;
   String? _recommendationsError;
 
-  // ── Tutor IA remoto (nuevo) ───────────────────────────────
+  // ── Tutor IA remoto ────────────────────────────────────────
   RemoteDocument? _remoteDocument;
   String? _tutorError;
   Timer? _pollingTimer;
@@ -48,6 +59,7 @@ class _PdfResultsViewState extends State<PdfResultsView> {
     super.initState();
     _loadRecommendations();
     _initializeTutorForDocument();
+    _registerReadingActivity();
   }
 
   @override
@@ -58,6 +70,27 @@ class _PdfResultsViewState extends State<PdfResultsView> {
 
   String get _fileName =>
       widget.pdfFile.path.split(RegExp(r'[/\\]')).last;
+
+  // ══════════════════════════════════════════════════════════════════
+  // RACHA / LOGROS / DOCUMENTOS RECIENTES (de Gael)
+  // ══════════════════════════════════════════════════════════════════
+
+  /// El visor de PDF también cuenta como "leer" para la racha — antes
+  /// solo se contaba con abrir sesión, ahora se cuenta al entrar de
+  /// verdad a un documento (EPUB o PDF).
+  Future<void> _registerReadingActivity() async {
+    final userVm = sl<UserViewModel>();
+    if (userVm.profile == null) {
+      await userVm.loadProfile();
+    }
+    final userId = userVm.profile?.id;
+    if (userId == null) return;
+
+    await StreakService.registerVisit(userId);
+
+    final uploads = await RecentDocumentsService.getAll(userId);
+    await AchievementService.checkUploads(userId, uploads.length);
+  }
 
   // ══════════════════════════════════════════════════════════════════
   // RECOMENDACIONES (existente)
@@ -162,7 +195,7 @@ class _PdfResultsViewState extends State<PdfResultsView> {
   }
 
   // ══════════════════════════════════════════════════════════════════
-  // UI
+  // UI — Tutor híbrido
   // ══════════════════════════════════════════════════════════════════
 
   void _openTutorChat() async {
@@ -210,35 +243,6 @@ class _PdfResultsViewState extends State<PdfResultsView> {
     }
 
     // Documento aún procesando o falló → sheet de espera (ya existente).
-    _showIndexingSheet(doc);
-  }
-
-  void _openLocalTutorChat() {
-    TutorChatSheet.show(
-      context,
-      documentContext: _fileName,
-    );
-  }
-
-// Rama remota preservada para cuando implementemos el modo híbrido real.
-// ignore: unused_element
-  void _openRemoteTutorChat() {
-    final doc = _remoteDocument;
-
-    if (doc == null) {
-      _showLoadingSnackbar('El tutor se está preparando…');
-      return;
-    }
-
-    if (doc.isReady) {
-      RemoteTutorChatSheet.show(
-        context,
-        documentContext: _fileName,
-        remoteDocumentId: doc.id,
-      );
-      return;
-    }
-
     _showIndexingSheet(doc);
   }
 
@@ -291,6 +295,7 @@ class _PdfResultsViewState extends State<PdfResultsView> {
   @override
   Widget build(BuildContext context) {
     final count = _items?.length;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -312,9 +317,11 @@ class _PdfResultsViewState extends State<PdfResultsView> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openRecommendationsSheet(context),
-        icon: const Icon(Icons.menu_book_rounded),
+        backgroundColor: cs.primary,
+        icon: Icon(Icons.menu_book_rounded, color: cs.onPrimary),
         label: Text(
           count == null ? 'Te puede interesar' : 'Te puede interesar ($count)',
+          style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -327,7 +334,7 @@ class _PdfResultsViewState extends State<PdfResultsView> {
       showDragHandle: true,
       builder: (sheetContext) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.5,
+          initialChildSize: 0.55,
           minChildSize: 0.3,
           maxChildSize: 0.9,
           expand: false,
@@ -431,14 +438,21 @@ class _RecommendationsSheetContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: Text('Te puede interesar', style: textTheme.titleMedium),
+          child: Text(
+            'Te puede interesar',
+            style: tt.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: cs.primary,
+            ),
+          ),
         ),
         const Divider(height: 1),
         Expanded(child: _buildBody(context)),
@@ -447,29 +461,183 @@ class _RecommendationsSheetContent extends StatelessWidget {
   }
 
   Widget _buildBody(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     if (error != null) {
-      return Center(child: Text('Error: $error'));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Error: $error',
+            style: TextStyle(color: cs.onSurfaceVariant),
+          ),
+        ),
+      );
     }
     if (items == null) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator(color: cs.primary));
     }
     if (items!.isEmpty) {
-      return const Center(child: Text('Aún no hay recomendaciones.'));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.auto_stories_outlined,
+                color: cs.primary.withOpacity(0.6),
+                size: 40,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No encontramos recomendaciones para este libro.\n'
+                    'Prueba subiendo otro con un tema distinto.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: cs.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      );
     }
-    return ListView.builder(
+    return ListView.separated(
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       itemCount: items!.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (_, i) {
         final r = items![i];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: Text(
-            '${i + 1}. ${r.title} — ${r.authors.join(', ')}',
-            style: const TextStyle(fontSize: 15),
-          ),
-        );
+        return _SheetRecommendationTile(recommendation: r);
       },
+    );
+  }
+}
+
+class _SheetRecommendationTile extends StatelessWidget {
+  final Recommendation recommendation;
+
+  const _SheetRecommendationTile({required this.recommendation});
+
+  Color _matchColor(ColorScheme cs) {
+    final p = recommendation.matchPercent;
+    if (p >= 70) return cs.primary;
+    if (p >= 40) return cs.tertiary;
+    return cs.secondary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final r = recommendation;
+    final matchColor = _matchColor(cs);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 46,
+              height: 64,
+              child: r.thumbnailUrl != null
+                  ? Image.network(
+                r.thumbnailUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: cs.primaryContainer,
+                  child: Icon(
+                    Icons.menu_book_rounded,
+                    color: cs.onPrimaryContainer,
+                    size: 20,
+                  ),
+                ),
+              )
+                  : Container(
+                color: cs.primaryContainer,
+                child: Icon(
+                  Icons.menu_book_rounded,
+                  color: cs.onPrimaryContainer,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        r.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: matchColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${r.matchPercent}%',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: matchColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  r.authors.join(', '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                if (r.matchReason != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    r.matchReason!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontStyle: FontStyle.italic,
+                      color: cs.primary.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

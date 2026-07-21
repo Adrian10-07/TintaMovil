@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../../core/localization/app_strings.dart';
 
 /// Barra de navegación inferior con 5 tabs Tinta.
 ///
-/// Tabs: Home, Explorar, Estudio, Club, Yo
+/// Tabs: Home, Explorar, Estudio, Club, Yo (traducidos según el idioma
+/// elegido en Perfil > Editar perfil).
 class TintaBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -13,18 +15,19 @@ class TintaBottomNav extends StatelessWidget {
     required this.onTap,
   }) : super(key: key);
 
-  static const _items = [
-    (icon: Icons.home_rounded, label: 'Home'),
-    (icon: Icons.explore_rounded, label: 'Explorar'),
-    (icon: Icons.psychology_rounded, label: 'Estudio'),
-    (icon: Icons.groups_rounded, label: 'Club'),
-    (icon: Icons.person_rounded, label: 'Yo'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final t = AppStrings.of(context);
+
+    final items = [
+      (icon: Icons.home_rounded, label: t.navHome),
+      (icon: Icons.explore_rounded, label: t.navExplore),
+      (icon: Icons.psychology_rounded, label: t.navStudy),
+      (icon: Icons.groups_rounded, label: t.navClub),
+      (icon: Icons.person_rounded, label: t.navMe),
+    ];
 
     return Container(
       decoration: BoxDecoration(
@@ -43,7 +46,7 @@ class TintaBottomNav extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_items.length, (i) {
+            children: List.generate(items.length, (i) {
               final selected = currentIndex == i;
               return GestureDetector(
                 onTap: () => onTap(i),
@@ -62,7 +65,7 @@ class TintaBottomNav extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _items[i].icon,
+                        items[i].icon,
                         size: 22,
                         color: selected
                             ? colorScheme.primary
@@ -70,7 +73,7 @@ class TintaBottomNav extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        _items[i].label,
+                        items[i].label,
                         style: textTheme.labelSmall?.copyWith(
                           color: selected
                               ? colorScheme.primary

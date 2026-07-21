@@ -49,10 +49,10 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
 
   @override
   Future<void> indexDocument(
-    String filePath, {
-    String? fileName,
-    void Function(double progress)? onProgress,
-  }) async {
+      String filePath, {
+        String? fileName,
+        void Function(double progress)? onProgress,
+      }) async {
     final hash = await getDocumentHash(filePath);
     onProgress?.call(0.05);
 
@@ -117,10 +117,10 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
 
   @override
   Future<List<DocumentChunk>> search(
-    String query, {
-    required String documentHash,
-    int topK = 3,
-  }) async {
+      String query, {
+        required String documentHash,
+        int topK = 3,
+      }) async {
     final chunks = await _datasource.getChunks(documentHash);
     if (chunks.isEmpty) return [];
 
@@ -135,5 +135,108 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
   @override
   Future<void> deleteDocument(String documentHash) {
     return _datasource.deleteDocument(documentHash);
+  }
+
+  // ── Bases de conocimiento curadas ──────────────────────────────────────
+
+  @override
+  Future<bool> isKnowledgeBaseIndexed(String kbId) {
+    return _datasource.isDocumentIndexed(kbId);
+  }
+
+  @override
+  Future<void> indexMarkdownKnowledgeBase(
+      String kbId,
+      String title,
+      String markdownContent, {
+        void Function(double progress)? onProgress,
+      }) async {
+    onProgress?.call(0.05);
+
+    if (await _datasource.isDocumentIndexed(kbId)) {
+      onProgress?.call(1.0);
+      return;
+    }
+
+    // 1. Dividir el markdown por conceptos ("### Título" + su cuerpo).
+    //    Cada concepto ya es corto y autocontenido por diseño, así que se
+    //    vuelve un chunk propio en vez de pasar por el chunker de PDFs
+    //    (que corta cada ~300 palabras sin respetar límites de concepto).
+    final sections = _splitMarkdownByConcept(markdownContent);
+    onProgress?.call(0.30);
+
+    if (sections.isEmpty) {
+      await _datasource.saveDocument(IndexedDocument(
+        hash: kbId,
+        fileName: title,
+        totalChunks: 0,
+        indexedAt: DateTime.now(),
+      ));
+      onProgress?.call(1.0);
+      return;
+    }
+
+    final chunks = <DocumentChunk>[
+      for (int i = 0; i < sections.length; i++)
+        DocumentChunk(
+          documentHash: kbId,
+          chunkIndex: i,
+          content: sections[i],
+          pageNumber: i,
+        ),
+    ];
+
+    // 2. Calcular TF-IDF (75% del progreso).
+    final chunkTexts = chunks.map((c) => c.content).toList();
+    final df = _tfidfEngine.computeDocumentFrequencies(chunkTexts);
+    final totalDocs = chunks.length;
+
+    final indexedChunks = <DocumentChunk>[];
+    for (int i = 0; i < chunks.length; i++) {
+      final vector = _tfidfEngine.computeTfidf(
+        chunks[i].content,
+        df,
+        totalDocs,
+      );
+      indexedChunks.add(chunks[i].copyWith(tfidfVector: vector));
+    }
+    onProgress?.call(0.75);
+
+    // 3. Persistir en SQLite (100% del progreso).
+    await _datasource.saveChunks(indexedChunks);
+    await _datasource.saveDocument(IndexedDocument(
+      hash: kbId,
+      fileName: title,
+      totalChunks: indexedChunks.length,
+      indexedAt: DateTime.now(),
+    ));
+    onProgress?.call(1.0);
+  }
+
+  /// Divide el markdown en secciones por cada encabezado "### ".
+  /// El texto antes del primer "### " (títulos "#"/"##" y notas) se
+  /// descarta porque no es un concepto indexable.
+  List<String> _splitMarkdownByConcept(String markdown) {
+    final lines = markdown.split('\n');
+    final sections = <String>[];
+    final buffer = StringBuffer();
+    bool inSection = false;
+
+    for (final line in lines) {
+      if (line.startsWith('### ')) {
+        if (inSection && buffer.toString().trim().isNotEmpty) {
+          sections.add(buffer.toString().trim());
+        }
+        buffer.clear();
+        inSection = true;
+        buffer.writeln(line.substring(4).trim()); // título sin "### "
+      } else if (inSection) {
+        buffer.writeln(line);
+      }
+    }
+    if (inSection && buffer.toString().trim().isNotEmpty) {
+      sections.add(buffer.toString().trim());
+    }
+    return sections;
   }
 }
