@@ -9,12 +9,8 @@ import '../components/member_list_tile.dart';
 import 'club_chat_view.dart';
 
 /// Pantalla de detalle de un club.
-///
-/// Muestra información del club, lista de miembros, y permite acceder
-/// al chat, unirse/abandonar, y administrar (si es owner/moderator).
 class ClubDetailView extends StatefulWidget {
   final String clubId;
-
   const ClubDetailView({super.key, required this.clubId});
 
   @override
@@ -47,6 +43,7 @@ class _ClubDetailViewState extends State<ClubDetailView> {
         builder: (_) => ClubChatView(
           clubId: widget.clubId,
           clubName: _vm.club?.name ?? 'Chat',
+          memberCount: _vm.club?.memberCount ?? _vm.members.length,
         ),
       ),
     );
@@ -56,7 +53,10 @@ class _ClubDetailViewState extends State<ClubDetailView> {
     final success = await _vm.join();
     if (mounted && success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('¡Te uniste al club!')),
+        const SnackBar(
+          content: Text('¡Te uniste al club!'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -66,7 +66,8 @@ class _ClubDetailViewState extends State<ClubDetailView> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Abandonar club'),
-        content: const Text('¿Estás seguro de que quieres abandonar este club?'),
+        content:
+        const Text('¿Estás seguro de que quieres abandonar este club?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -79,19 +80,14 @@ class _ClubDetailViewState extends State<ClubDetailView> {
         ],
       ),
     );
-
     if (confirmed == true) {
       final success = await _vm.leave();
-      if (mounted && success) {
-        Navigator.pop(context);
-      }
+      if (mounted && success) Navigator.pop(context);
     }
   }
 
   Future<void> _generateInvite() async {
-    final invite = await _vm.generateInvite(
-      ttl: const Duration(days: 7),
-    );
+    final invite = await _vm.generateInvite(ttl: const Duration(days: 7));
     if (invite != null && mounted) {
       showDialog(
         context: context,
@@ -103,17 +99,15 @@ class _ClubDetailViewState extends State<ClubDetailView> {
               SelectableText(
                 invite.code,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 4,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 4,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
-                'Comparte este código para invitar personas.',
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
-              ),
+              Text('Comparte este código para invitar personas.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center),
             ],
           ),
           actions: [
@@ -152,12 +146,8 @@ class _ClubDetailViewState extends State<ClubDetailView> {
                 PopupMenuButton<String>(
                   onSelected: (value) {
                     switch (value) {
-                      case 'invite':
-                        _generateInvite();
-                        break;
-                      case 'clear_chat':
-                        _vm.clearChat();
-                        break;
+                      case 'invite':    _generateInvite(); break;
+                      case 'clear_chat': _vm.clearChat(); break;
                       case 'delete':
                         _vm.deleteClub().then((ok) {
                           if (ok && mounted) Navigator.pop(context);
@@ -171,8 +161,7 @@ class _ClubDetailViewState extends State<ClubDetailView> {
                       child: ListTile(
                         leading: Icon(Icons.link),
                         title: Text('Generar invitación'),
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
+                        dense: true, contentPadding: EdgeInsets.zero,
                       ),
                     ),
                     const PopupMenuItem(
@@ -180,20 +169,18 @@ class _ClubDetailViewState extends State<ClubDetailView> {
                       child: ListTile(
                         leading: Icon(Icons.delete_sweep_rounded),
                         title: Text('Vaciar chat'),
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
+                        dense: true, contentPadding: EdgeInsets.zero,
                       ),
                     ),
                     if (_vm.canManage)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
                         child: ListTile(
                           leading: Icon(Icons.delete_forever_rounded,
-                              color: Colors.red),
+                              color: colorScheme.error),
                           title: Text('Eliminar club',
-                              style: TextStyle(color: Colors.red)),
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
+                              style: TextStyle(color: colorScheme.error)),
+                          dense: true, contentPadding: EdgeInsets.zero,
                         ),
                       ),
                   ],
@@ -203,9 +190,8 @@ class _ClubDetailViewState extends State<ClubDetailView> {
           body: _vm.isLoading
               ? const Center(child: CircularProgressIndicator())
               : _vm.errorMessage != null && _vm.club == null
-                  ? Center(child: Text(_vm.errorMessage!))
-                  : _buildContent(colorScheme, textTheme),
-          // Botón flotante: unirse o entrar al chat.
+              ? Center(child: Text(_vm.errorMessage!))
+              : _buildContent(colorScheme, textTheme),
           floatingActionButton: _buildFab(),
         );
       },
@@ -219,7 +205,7 @@ class _ClubDetailViewState extends State<ClubDetailView> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        // Info del club
+        // Hero card
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -251,8 +237,7 @@ class _ClubDetailViewState extends State<ClubDetailView> {
                                 club.isPrivate
                                     ? Icons.lock_rounded
                                     : Icons.public_rounded,
-                                size: 16,
-                                color: colorScheme.onSurfaceVariant,
+                                size: 16, color: colorScheme.onSurfaceVariant,
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -263,11 +248,10 @@ class _ClubDetailViewState extends State<ClubDetailView> {
                               ),
                               const SizedBox(width: 12),
                               Icon(Icons.group_rounded,
-                                  size: 16,
-                                  color: colorScheme.onSurfaceVariant),
+                                  size: 16, color: colorScheme.onSurfaceVariant),
                               const SizedBox(width: 4),
                               Text(
-                                '${club.memberCount} miembros',
+                                '${_vm.members.length} miembros',
                                 style: textTheme.bodySmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -282,13 +266,6 @@ class _ClubDetailViewState extends State<ClubDetailView> {
                 if (club.description.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(club.description, style: textTheme.bodyMedium),
-                ],
-                if (club.category != null) ...[
-                  const SizedBox(height: 12),
-                  Chip(
-                    label: Text(club.category!),
-                    avatar: const Icon(Icons.category_rounded, size: 16),
-                  ),
                 ],
               ],
             ),
@@ -305,16 +282,16 @@ class _ClubDetailViewState extends State<ClubDetailView> {
                 _vm.myRole == ClubRole.owner
                     ? Icons.star_rounded
                     : _vm.myRole == ClubRole.moderator
-                        ? Icons.shield_rounded
-                        : Icons.person_rounded,
+                    ? Icons.shield_rounded
+                    : Icons.person_rounded,
                 color: colorScheme.primary,
               ),
               title: Text('Tu rol: ${_vm.myRole!.name}'),
               trailing: _vm.myRole != ClubRole.owner
                   ? TextButton(
-                      onPressed: _onLeave,
-                      child: const Text('Abandonar'),
-                    )
+                onPressed: _onLeave,
+                child: const Text('Abandonar'),
+              )
                   : null,
             ),
           ),
@@ -324,28 +301,22 @@ class _ClubDetailViewState extends State<ClubDetailView> {
         // Miembros
         Text('Miembros', style: textTheme.titleMedium),
         const SizedBox(height: 8),
-        ..._vm.members.map(
-          (m) => MemberListTile(member: m),
-        ),
+        ..._vm.members.map((m) => MemberListTile(member: m)),
 
-        const SizedBox(height: 80), // Espacio para el FAB.
+        const SizedBox(height: 80),
       ],
     );
   }
 
   Widget? _buildFab() {
     if (_vm.isLoading) return null;
-
     if (!_vm.isMember) {
-      // Botón de unirse.
       return FloatingActionButton.extended(
         onPressed: _onJoin,
         icon: const Icon(Icons.group_add_rounded),
         label: const Text('Unirse'),
       );
     }
-
-    // Botón de entrar al chat.
     return FloatingActionButton.extended(
       onPressed: _navigateToChat,
       icon: const Icon(Icons.chat_rounded),

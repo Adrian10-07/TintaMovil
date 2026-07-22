@@ -10,7 +10,7 @@ import '../models/discussion_model.dart';
 /// los mensajes más recientes de cada club con estrategia cache-first.
 class ClubLocalDataSource {
   static const String _dbName = 'tinta_clubs_cache.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
   static const int _maxMessagesPerClub = 500;
 
   Database? _db;
@@ -29,7 +29,17 @@ class ClubLocalDataSource {
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  /// Migración de v1 → v2: agregar columnas de image, pin, message_type.
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE cached_discussions ADD COLUMN message_type TEXT');
+      await db.execute('ALTER TABLE cached_discussions ADD COLUMN image_url TEXT');
+      await db.execute('ALTER TABLE cached_discussions ADD COLUMN is_pinned INTEGER DEFAULT 0');
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -41,6 +51,9 @@ class ClubLocalDataSource {
         chapter_number INTEGER,
         content     TEXT NOT NULL,
         moderation_flag TEXT,
+        message_type TEXT,
+        image_url   TEXT,
+        is_pinned   INTEGER DEFAULT 0,
         created_at  INTEGER NOT NULL,
         updated_at  INTEGER NOT NULL,
         user_name   TEXT,
@@ -65,10 +78,10 @@ class ClubLocalDataSource {
 
   /// Obtiene mensajes cacheados de un club, ordenados del más nuevo al viejo.
   Future<List<Discussion>> getDiscussions(
-    String clubId, {
-    int limit = 50,
-    int offset = 0,
-  }) async {
+      String clubId, {
+        int limit = 50,
+        int offset = 0,
+      }) async {
     final db = await database;
     final rows = await db.query(
       'cached_discussions',
@@ -114,16 +127,16 @@ class ClubLocalDataSource {
       final model = d is DiscussionModel
           ? d
           : DiscussionModel(
-              id: d.id,
-              clubId: d.clubId,
-              userId: d.userId,
-              chapterNumber: d.chapterNumber,
-              content: d.content,
-              moderationFlag: d.moderationFlag,
-              createdAt: d.createdAt,
-              updatedAt: d.updatedAt,
-              userName: d.userName,
-            );
+        id: d.id,
+        clubId: d.clubId,
+        userId: d.userId,
+        chapterNumber: d.chapterNumber,
+        content: d.content,
+        moderationFlag: d.moderationFlag,
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt,
+        userName: d.userName,
+      );
       batch.insert(
         'cached_discussions',
         {

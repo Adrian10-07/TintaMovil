@@ -84,11 +84,12 @@ class ClubChatViewModel extends ChangeNotifier {
 
       _state = _messages.isEmpty ? ChatState.empty : ChatState.loaded;
     } catch (e) {
+      // Si falla la red pero hay caché, seguir mostrando mensajes.
+      // Si no hay nada, mostrar estado vacío (no error) para que pueda escribir.
       if (_messages.isEmpty) {
-        _state = ChatState.error;
-        _errorMessage = e.toString();
+        _state = ChatState.empty;
+        _errorMessage = null; // No bloquear la UI — el usuario puede intentar enviar.
       }
-      // Si ya tenemos caché, no mostrar error — el usuario puede seguir viendo mensajes.
     }
 
     notifyListeners();
@@ -206,7 +207,7 @@ class ClubChatViewModel extends ChangeNotifier {
 
     try {
       final updated =
-          await _repository.updateDiscussion(discussionId, newContent.trim());
+      await _repository.updateDiscussion(discussionId, newContent.trim());
       final index = _messages.indexWhere((m) => m.id == discussionId);
       if (index != -1) {
         _messages[index] = updated.copyWith(isMine: true);
@@ -259,6 +260,11 @@ class ClubChatViewModel extends ChangeNotifier {
     _currentPage = 1;
     _hasMoreOlder = true;
     await _syncFromServer();
+    if (_messages.isEmpty) {
+      _state = ChatState.empty;
+    } else {
+      _state = ChatState.loaded;
+    }
     notifyListeners();
   }
 
@@ -272,16 +278,20 @@ class ClubChatViewModel extends ChangeNotifier {
 
   /// Sincroniza mensajes desde el servidor.
   Future<void> _syncFromServer() async {
-    final page = await _repository.listDiscussions(
-      clubId: clubId,
-      page: 1,
-      pageSize: 50,
-      chapterNumber: _filterChapter,
-    );
+    try {
+      final page = await _repository.listDiscussions(
+        clubId: clubId,
+        page: 1,
+        pageSize: 50,
+        chapterNumber: _filterChapter,
+      );
 
-    final enriched = _enrichMessages(page.items);
-    _mergeMessages(enriched);
-    _hasMoreOlder = page.hasMore;
+      final enriched = _enrichMessages(page.items);
+      _mergeMessages(enriched);
+      _hasMoreOlder = page.hasMore;
+    } catch (_) {
+      // Auth o red falla — no bloquear, el usuario puede seguir con caché o enviar.
+    }
   }
 
   /// Conecta al stream de mensajes en tiempo real.
@@ -289,7 +299,7 @@ class ClubChatViewModel extends ChangeNotifier {
     _ws.setFetchCallback((clubId, {int page = 1, int pageSize = 20}) {
       return _repository
           .listDiscussions(
-              clubId: clubId, page: page, pageSize: pageSize)
+          clubId: clubId, page: page, pageSize: pageSize)
           .then((p) => p.items);
     });
 
@@ -331,7 +341,7 @@ class ClubChatViewModel extends ChangeNotifier {
   void _mergeMessages(List<Discussion> incoming) {
     final existingIds = _messages.map((m) => m.id).toSet();
     final newMessages =
-        incoming.where((m) => !existingIds.contains(m.id)).toList();
+    incoming.where((m) => !existingIds.contains(m.id)).toList();
 
     if (newMessages.isEmpty) return;
 

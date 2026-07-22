@@ -8,8 +8,22 @@ enum ModerationFlag {
   static ModerationFlag fromString(String? value) {
     if (value == null) return ModerationFlag.none;
     return ModerationFlag.values.firstWhere(
-      (f) => f.name == value,
+          (f) => f.name == value,
       orElse: () => ModerationFlag.none,
+    );
+  }
+}
+
+/// Tipo de contenido del mensaje.
+enum MessageType {
+  text,
+  image;
+
+  static MessageType fromString(String? value) {
+    if (value == null) return MessageType.text;
+    return MessageType.values.firstWhere(
+          (t) => t.name == value,
+      orElse: () => MessageType.text,
     );
   }
 }
@@ -22,6 +36,9 @@ class Discussion {
   final int? chapterNumber;
   final String content;
   final ModerationFlag moderationFlag;
+  final MessageType messageType;
+  final String? imageUrl;
+  final bool isPinned;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -36,6 +53,9 @@ class Discussion {
     this.chapterNumber,
     required this.content,
     this.moderationFlag = ModerationFlag.none,
+    this.messageType = MessageType.text,
+    this.imageUrl,
+    this.isPinned = false,
     required this.createdAt,
     required this.updatedAt,
     this.userName,
@@ -44,19 +64,25 @@ class Discussion {
 
   bool get isSpoiler => moderationFlag == ModerationFlag.spoiler;
   bool get isBlocked => moderationFlag == ModerationFlag.blocked;
+  bool get isImage => messageType == MessageType.image && imageUrl != null;
 
   Discussion copyWith({
+    String? content,
     ModerationFlag? moderationFlag,
     String? userName,
     bool? isMine,
+    bool? isPinned,
   }) {
     return Discussion(
       id: id,
       clubId: clubId,
       userId: userId,
       chapterNumber: chapterNumber,
-      content: content,
+      content: content ?? this.content,
       moderationFlag: moderationFlag ?? this.moderationFlag,
+      messageType: messageType,
+      imageUrl: imageUrl,
+      isPinned: isPinned ?? this.isPinned,
       createdAt: createdAt,
       updatedAt: updatedAt,
       userName: userName ?? this.userName,

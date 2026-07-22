@@ -104,10 +104,10 @@ class _HomeViewState extends State<HomeView> {
       // Estudio tab → navigate to upload book
       _onUploadTap();
     } else if (index == 3) {
-      // Club tab → navigate to clubs
+      // Club tab → navigate to clubs (ClubsListView tiene su propio Scaffold + nav)
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const Scaffold(body: ClubsListView())),
+        MaterialPageRoute(builder: (_) => const ClubsListView()),
       );
       return;
     } else if (index == 4) {

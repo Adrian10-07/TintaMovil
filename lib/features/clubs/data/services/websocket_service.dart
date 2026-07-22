@@ -31,7 +31,7 @@ class WebSocketService {
 
   /// Stream controller para el estado de conexión.
   final _stateController =
-      StreamController<WsConnectionState>.broadcast();
+  StreamController<WsConnectionState>.broadcast();
 
   /// Estado actual de la conexión.
   WsConnectionState _state = WsConnectionState.disconnected;
@@ -46,7 +46,7 @@ class WebSocketService {
 
   /// Callback para obtener mensajes vía REST (polling fallback).
   Future<List<Discussion>> Function(String clubId, {int page, int pageSize})?
-      _fetchMessages;
+  _fetchMessages;
 
   /// Último timestamp recibido para polling incremental.
   DateTime? _lastReceivedAt;
@@ -72,10 +72,10 @@ class WebSocketService {
 
   /// Configura el callback de polling fallback.
   void setFetchCallback(
-    Future<List<Discussion>> Function(String clubId,
-            {int page, int pageSize})
-        callback,
-  ) {
+      Future<List<Discussion>> Function(String clubId,
+          {int page, int pageSize})
+      callback,
+      ) {
     _fetchMessages = callback;
   }
 
@@ -128,16 +128,26 @@ class WebSocketService {
     _setState(WsConnectionState.connected);
     _pollingTimer = Timer.periodic(
       const Duration(seconds: 5),
-      (_) => _pollMessages(clubId),
+          (_) => _pollMessages(clubId),
     );
   }
+
+  int _consecutiveErrors = 0;
 
   Future<void> _pollMessages(String clubId) async {
     if (_fetchMessages == null || clubId != _currentClubId) return;
 
+    // Detener polling después de 3 errores consecutivos (evita spam de logs).
+    if (_consecutiveErrors >= 3) {
+      _pollingTimer?.cancel();
+      _pollingTimer = null;
+      _setState(WsConnectionState.disconnected);
+      return;
+    }
+
     try {
       final messages =
-          await _fetchMessages!(clubId, page: 1, pageSize: 20);
+      await _fetchMessages!(clubId, page: 1, pageSize: 20);
 
       for (final msg in messages) {
         // Solo emitir mensajes más nuevos que el último recibido.
@@ -152,8 +162,10 @@ class WebSocketService {
             .map((m) => m.createdAt)
             .reduce((a, b) => a.isAfter(b) ? a : b);
       }
+
+      _consecutiveErrors = 0; // Reset en éxito.
     } catch (_) {
-      // Silently ignore polling errors — no interrumpir la UX.
+      _consecutiveErrors++;
     }
   }
 
@@ -171,10 +183,10 @@ class WebSocketService {
           _messageController.add(DiscussionModel.fromJson(data));
           break;
         case 'message_deleted':
-          // El ViewModel se encargará de remover del estado local.
+        // El ViewModel se encargará de remover del estado local.
           break;
         case 'chat_cleared':
-          // El ViewModel limpiará el historial.
+        // El ViewModel limpiará el historial.
           break;
       }
     } catch (_) {
