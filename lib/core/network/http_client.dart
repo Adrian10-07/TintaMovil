@@ -1,12 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Excepciones tipadas
-// Coinciden con el ErrorBody del backend Go:
-//   { "error": "message", "code": "CODE" }
-// ─────────────────────────────────────────────────────────────────────────────
-
 class ApiException implements Exception {
   final String message;
   final String? code;
@@ -37,9 +31,7 @@ class NetworkException extends ApiException {
       : super(message, code: 'NETWORK_ERROR', statusCode: 0);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // ApiClient — Cliente HTTP centralizado
-// ─────────────────────────────────────────────────────────────────────────────
 
 class ApiClient {
   final http.Client _client;
@@ -52,7 +44,7 @@ class ApiClient {
 
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
-  // ── Token management ────────────────────────────────────────────────────
+  //Token management
 
   void setTokens({required String accessToken, required String refreshToken}) {
     _accessToken = accessToken;
@@ -68,7 +60,7 @@ class ApiClient {
   String? get refreshToken => _refreshToken;
   bool get isAuthenticated => _accessToken != null;
 
-  // ── Headers ─────────────────────────────────────────────────────────────
+  //Headers
 
   Map<String, String> get _baseHeaders => {
     'Content-Type': 'application/json',
@@ -80,7 +72,7 @@ class ApiClient {
     if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
   };
 
-  // ── HTTP methods ────────────────────────────────────────────────────────
+  //methods
 
   Future<dynamic> get(String url, {bool auth = false}) async {
     try {
@@ -146,11 +138,7 @@ class ApiClient {
     }
   }
 
-  // ── Response handling ───────────────────────────────────────────────────
-  // El backend Tinta responde:
-  //   Éxito: JSON directo (sin wrapper {data:...})
-  //   Error: { "error": "message", "code": "CODE" }
-  //   204:   sin body
+
 
   dynamic _handleResponse(http.Response response) {
     // 204 No Content

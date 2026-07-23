@@ -49,6 +49,15 @@ import '../../features/knowledge_base/data/services/tfidf_engine.dart';
 import '../../features/knowledge_base/domain/repositories/knowledge_repository.dart';
 import '../../features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
 
+// Clubs
+import '../../features/clubs/data/datasources/club_remote_datasource.dart';
+import '../../features/clubs/data/datasources/club_local_datasource.dart';
+import '../../features/clubs/data/repositories/club_repository_impl.dart';
+import '../../features/clubs/data/services/moderation_service.dart';
+import '../../features/clubs/data/services/websocket_service.dart';
+import '../../features/clubs/domain/repositories/club_repository.dart';
+import '../../features/clubs/presentation/viewmodels/clubs_viewmodel.dart';
+
 final sl = GetIt.instance;
 
 const String _tutorAiBaseUrl =
@@ -117,11 +126,43 @@ void setupServiceLocator() {
         () => ReaderViewModel(sl()),
   );
 
+  // ── CLUBS ─────────────────────────────────────────────────────────────
+  registerClubs();
+
   // ── KNOWLEDGE BASE ──────────────────────────────────────────────────────
   registerKnowledgeBase();
 
   // ── TUTOR AI ────────────────────────────────────────────────────────────
   registerTutorAi();
+}
+
+void registerClubs() {
+  sl.registerLazySingleton<ClubRemoteDataSource>(
+        () => ClubRemoteDataSource(sl()),
+  );
+
+  sl.registerLazySingleton<ClubLocalDataSource>(
+        () => ClubLocalDataSource(),
+  );
+
+  sl.registerLazySingleton<ModerationService>(
+        () => ModerationService(),
+  );
+
+  sl.registerLazySingleton<WebSocketService>(
+        () => WebSocketService(),
+  );
+
+  sl.registerLazySingleton<ClubRepository>(
+        () => ClubRepositoryImpl(
+      remote: sl(),
+      local: sl(),
+    ),
+  );
+
+  sl.registerLazySingleton<ClubsViewModel>(
+        () => ClubsViewModel(sl()),
+  );
 }
 
 void registerKnowledgeBase() {
@@ -162,7 +203,9 @@ void registerTutorAi() {
   );
 
   sl.registerLazySingleton<TutorRepository>(
-        () => TutorRepositoryImpl(sl<TutorLlmDatasource>()),
+        () => TutorRepositoryImpl(
+      sl<TutorLlmDatasource>(),
+    ),
   );
 
   sl.registerLazySingleton<TutorChatViewModel>(

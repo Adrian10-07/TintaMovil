@@ -7,6 +7,7 @@ import 'core/ui/theme3material/theme.dart';
 
 import 'features/auth/presentation/viewmodels/auth_viewmodel.dart';
 import 'features/user/presentation/viewmodels/user_viewmodel.dart';
+import 'features/clubs/presentation/viewmodels/clubs_viewmodel.dart';
 import 'features/knowledge_base/data/datasources/knowledge_base_prefs.dart';
 import 'features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
 import 'core/network/session_storage.dart';
@@ -168,6 +169,7 @@ class TintaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<UserViewModel>(create: (_) => sl<UserViewModel>()),
+        ChangeNotifierProvider<ClubsViewModel>(create: (_) => sl<ClubsViewModel>()),
         ChangeNotifierProvider<AppSettingsController>.value(value: appSettings),
       ],
       child: Builder(
