@@ -10,6 +10,7 @@ import '../../../features/recommendations/presentation/views/upload_book_view.da
 import '../../../features/user/presentation/views/user_view.dart';
 import '../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../../../features/clubs/presentation/views/clubs_list_view.dart';
+import '../../../features/clubs/data/services/club_notification_service.dart';
 
 /// Shell raíz de la app tras el login.
 ///
@@ -32,14 +33,35 @@ class MainTabShell extends StatefulWidget {
 class _MainTabShellState extends State<MainTabShell> {
   int _index = 0;
   late final HomeViewModel _homeViewModel;
+  late final ClubNotificationService _notifService;
 
   @override
   void initState() {
     super.initState();
     _homeViewModel = sl<HomeViewModel>();
+    _notifService = sl<ClubNotificationService>();
+
+    // Iniciar polling de notificaciones cuando el userId esté disponible.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userId = context.read<UserViewModel>().profile?.id;
+      if (userId != null) {
+        _notifService.initialize(userId);
+        _notifService.startPolling();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _notifService.stopPolling();
+    super.dispose();
   }
 
   void _onTap(int index) {
+    // Si entra al tab de clubs, marcar como visto y refrescar badge.
+    if (index == 3) {
+      _notifService.refresh();
+    }
     setState(() => _index = index);
   }
 
@@ -57,9 +79,13 @@ class _MainTabShellState extends State<MainTabShell> {
 
     return Scaffold(
       body: IndexedStack(index: _index, children: tabs),
-      bottomNavigationBar: TintaBottomNav(
-        currentIndex: _index,
-        onTap: _onTap,
+      bottomNavigationBar: ListenableBuilder(
+        listenable: _notifService,
+        builder: (_, __) => TintaBottomNav(
+          currentIndex: _index,
+          onTap: _onTap,
+          clubBadgeCount: _notifService.unreadCount,
+        ),
       ),
     );
   }

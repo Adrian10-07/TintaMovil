@@ -8,6 +8,7 @@ import '../../domain/entities/club_member.dart';
 import '../../domain/repositories/club_repository.dart';
 import '../../data/services/moderation_service.dart';
 import '../../data/services/websocket_service.dart';
+import '../../data/services/club_notification_service.dart';
 import '../viewmodels/club_chat_viewmodel.dart';
 import '../components/chat_bubble.dart';
 import '../components/chat_input_bar.dart';
@@ -65,6 +66,9 @@ class _ClubChatViewState extends State<ClubChatView> {
 
     _scrollController.addListener(_onScroll);
     _vm.initialize();
+
+    // Marcar club como visto para el badge de notificaciones.
+    sl<ClubNotificationService>().markClubAsSeen(widget.clubId);
 
     // Si es el creador, ya sabemos que es owner — no esperar al backend.
     if (widget.isCreator) {

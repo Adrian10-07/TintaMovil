@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../domain/entities/club_member.dart';
 import '../../domain/repositories/club_repository.dart';
+import '../../data/services/club_notification_service.dart';
 import '../viewmodels/club_detail_viewmodel.dart';
 import '../components/member_list_tile.dart';
 import 'club_chat_view.dart';
@@ -19,6 +20,7 @@ class ClubDetailView extends StatefulWidget {
 
 class _ClubDetailViewState extends State<ClubDetailView> {
   late final ClubDetailViewModel _vm;
+  bool _isMuted = false;
 
   @override
   void initState() {
@@ -28,6 +30,28 @@ class _ClubDetailViewState extends State<ClubDetailView> {
       clubId: widget.clubId,
     );
     _vm.load();
+    _loadMuteState();
+  }
+
+  Future<void> _loadMuteState() async {
+    final notifService = sl<ClubNotificationService>();
+    final muted = await notifService.isClubMuted(widget.clubId);
+    if (mounted) setState(() => _isMuted = muted);
+  }
+
+  Future<void> _toggleMute() async {
+    final notifService = sl<ClubNotificationService>();
+    final newState = !_isMuted;
+    await notifService.setClubMuted(widget.clubId, newState);
+    if (mounted) {
+      setState(() => _isMuted = newState);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(newState
+            ? 'Club silenciado. No recibirás notificaciones.'
+            : 'Notificaciones activadas.'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
   }
 
   @override
@@ -87,48 +111,66 @@ class _ClubDetailViewState extends State<ClubDetailView> {
   }
 
   Future<void> _generateInvite() async {
-    final invite = await _vm.generateInvite(ttl: const Duration(days: 7));
-    if (invite != null && mounted) {
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Código de invitación'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SelectableText(
-                invite.code,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 4,
+    final club = _vm.club;
+    if (club == null) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Invitar al club'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Comparte este código con las personas que quieras invitar:',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SelectableText(
+                club.id,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
-              Text('Comparte este código para invitar personas.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                  textAlign: TextAlign.center),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: invite.code));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Código copiado')),
-                );
-              },
-              child: const Text('Copiar'),
             ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cerrar'),
+            const SizedBox(height: 8),
+            Text(
+              'El invitado debe pegar este código en "Unirse con código" desde la pantalla de Clubes.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
-      );
-    }
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: club.id));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Código copiado al portapapeles')),
+              );
+            },
+            child: const Text('Copiar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
   }
+
+  // Se elimina _showInviteDialog ya que no se necesita.
 
   @override
   Widget build(BuildContext context) {
@@ -142,11 +184,13 @@ class _ClubDetailViewState extends State<ClubDetailView> {
           appBar: AppBar(
             title: Text(_vm.club?.name ?? 'Club'),
             actions: [
-              if (_vm.canModerate)
+              // Menú disponible para todos los miembros.
+              if (_vm.isMember)
                 PopupMenuButton<String>(
                   onSelected: (value) {
                     switch (value) {
                       case 'invite':    _generateInvite(); break;
+                      case 'mute':      _toggleMute(); break;
                       case 'clear_chat': _vm.clearChat(); break;
                       case 'delete':
                         _vm.deleteClub().then((ok) {
@@ -156,22 +200,40 @@ class _ClubDetailViewState extends State<ClubDetailView> {
                     }
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'invite',
+                    // Invitar — solo admin/mod.
+                    if (_vm.canModerate)
+                      const PopupMenuItem(
+                        value: 'invite',
+                        child: ListTile(
+                          leading: Icon(Icons.link),
+                          title: Text('Invitar al club'),
+                          dense: true, contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    // Silenciar — cualquier miembro.
+                    PopupMenuItem(
+                      value: 'mute',
                       child: ListTile(
-                        leading: Icon(Icons.link),
-                        title: Text('Generar invitación'),
+                        leading: Icon(_isMuted
+                            ? Icons.notifications_active_rounded
+                            : Icons.notifications_off_rounded),
+                        title: Text(_isMuted
+                            ? 'Activar notificaciones'
+                            : 'Silenciar club'),
                         dense: true, contentPadding: EdgeInsets.zero,
                       ),
                     ),
-                    const PopupMenuItem(
-                      value: 'clear_chat',
-                      child: ListTile(
-                        leading: Icon(Icons.delete_sweep_rounded),
-                        title: Text('Vaciar chat'),
-                        dense: true, contentPadding: EdgeInsets.zero,
+                    // Vaciar chat — solo admin/mod.
+                    if (_vm.canModerate)
+                      const PopupMenuItem(
+                        value: 'clear_chat',
+                        child: ListTile(
+                          leading: Icon(Icons.delete_sweep_rounded),
+                          title: Text('Vaciar chat'),
+                          dense: true, contentPadding: EdgeInsets.zero,
+                        ),
                       ),
-                    ),
+                    // Eliminar — solo owner.
                     if (_vm.canManage)
                       PopupMenuItem(
                         value: 'delete',
