@@ -56,6 +56,7 @@ import '../../features/clubs/data/datasources/club_local_datasource.dart';
 import '../../features/clubs/data/repositories/club_repository_impl.dart';
 import '../../features/clubs/data/services/moderation_service.dart';
 import '../../features/clubs/data/services/websocket_service.dart';
+import '../../features/clubs/data/services/club_notification_service.dart';
 import '../../features/clubs/domain/repositories/club_repository.dart';
 import '../../features/clubs/presentation/viewmodels/clubs_viewmodel.dart';
 
@@ -163,6 +164,10 @@ void registerClubs() {
 
   sl.registerLazySingleton<ClubsViewModel>(
         () => ClubsViewModel(sl()),
+  );
+
+  sl.registerLazySingleton<ClubNotificationService>(
+        () => ClubNotificationService(sl()),
   );
 }
 

@@ -5,14 +5,19 @@ import '../../../../core/localization/app_strings.dart';
 ///
 /// Tabs: Home, Explorar, Estudio, Club, Yo (traducidos según el idioma
 /// elegido en Perfil > Editar perfil).
+///
+/// [clubBadgeCount] muestra un badge con la cantidad de clubes con mensajes
+/// no leídos sobre el icono de Club.
 class TintaBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final int clubBadgeCount;
 
   const TintaBottomNav({
     Key? key,
     required this.currentIndex,
     required this.onTap,
+    this.clubBadgeCount = 0,
   }) : super(key: key);
 
   @override
@@ -48,6 +53,8 @@ class TintaBottomNav extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(items.length, (i) {
               final selected = currentIndex == i;
+              final showBadge = i == 3 && clubBadgeCount > 0;
+
               return GestureDetector(
                 onTap: () => onTap(i),
                 behavior: HitTestBehavior.opaque,
@@ -64,12 +71,16 @@ class TintaBottomNav extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        items[i].icon,
-                        size: 22,
-                        color: selected
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
+                      Badge(
+                        isLabelVisible: showBadge,
+                        label: Text('$clubBadgeCount'),
+                        child: Icon(
+                          items[i].icon,
+                          size: 22,
+                          color: selected
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       Text(

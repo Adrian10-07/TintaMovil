@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:tinta/core/ui/theme3material/theme.dart';
+import '../../../../core/di/service_locator.dart';
+import '../../../clubs/data/services/club_notification_service.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../../../../core/presentation/components/tinta_background.dart';
 import '../components/home_app_bar.dart';
@@ -40,6 +42,7 @@ class _HomeViewState extends State<HomeView> with RouteAware {
 
   @override
   void initState() {
+
     super.initState();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -80,6 +83,11 @@ class _HomeViewState extends State<HomeView> with RouteAware {
       widget.viewModel.loadStreak(userId);
       widget.viewModel.loadCurrentlyReading(userId);
       widget.viewModel.loadUnreadNotifications(userId);
+
+      // Iniciar polling de notificaciones de clubes.
+      final notifService = sl<ClubNotificationService>();
+      notifService.initialize(userId);
+      notifService.startPolling();
     }
   }
 

@@ -90,9 +90,9 @@ class _ClubsListViewState extends State<ClubsListView>
     showDialog(
       context: context,
       builder: (_) => InviteDialog(
-        onJoin: (code) async {
+        onJoin: (clubId) async {
           final vm = context.read<ClubsViewModel>();
-          final success = await vm.joinWithCode(code);
+          final success = await vm.joinClub(clubId);
           if (mounted && success) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('¡Te uniste al club!')),
