@@ -9,6 +9,7 @@ import '../../../../core/network/sse_client.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/remote_document.dart';
 import '../../domain/entities/tutor_source.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 /// Evento del stream del chat remoto.
 sealed class RemoteChatEvent {
@@ -123,6 +124,9 @@ class RemoteTutorDatasource {
       })
           .toList(),
     };
+
+    debugPrint('🐛 documentId recibido: "$documentId" (${documentId.runtimeType})');
+    debugPrint('🐛 BODY completo: ${json.encode(body)}');
 
     try {
       final events = _sseClient.post(

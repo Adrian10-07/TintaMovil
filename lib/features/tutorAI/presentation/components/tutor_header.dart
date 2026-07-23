@@ -6,11 +6,10 @@ import 'package:flutter/material.dart';
 /// con icono ✨; en el centro el título y el indicador "● Active";
 /// a la derecha el chip "Modo Documento" o similar.
 class TutorHeader extends StatelessWidget {
-  /// Texto del chip de modo (ej. "Modo Documento", "Capítulo 3").
-  /// Si es null no se muestra.
-  final String? modeChipLabel;
+final String? modeChipLabel;
+final String? connectionLabel;
 
-  const TutorHeader({super.key, this.modeChipLabel});
+const TutorHeader({super.key, this.modeChipLabel, this.connectionLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +93,23 @@ class TutorHeader extends StatelessWidget {
                 modeChipLabel!,
                 style: tt.labelSmall?.copyWith(
                   color: cs.onPrimaryContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          if (modeChipLabel != null && connectionLabel != null)
+            const SizedBox(width: 6),
+          if (connectionLabel != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: cs.secondaryContainer,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                connectionLabel!,
+                style: tt.labelSmall?.copyWith(
+                  color: cs.onSecondaryContainer,
                   fontWeight: FontWeight.w700,
                 ),
               ),
