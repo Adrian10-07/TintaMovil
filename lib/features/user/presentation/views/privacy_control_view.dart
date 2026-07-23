@@ -5,8 +5,6 @@ import '../../../notifications/data/services/notification_service.dart';
 import '../../../recommendations/data/services/recent_documents_service.dart';
 import '../../../../core/localization/app_strings.dart';
 
-/// Pantalla "Privacidad" — explica qué se guarda dónde, y da control real
-/// para borrar cada tipo de dato guardado localmente en el dispositivo.
 class PrivacyControlView extends StatefulWidget {
   final String userId;
   const PrivacyControlView({Key? key, required this.userId}) : super(key: key);
@@ -72,7 +70,7 @@ class _PrivacyControlViewState extends State<PrivacyControlView> {
     return Scaffold(
       appBar: AppBar(title: Text(t.privacy)),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
         children: [
           Container(
             padding: const EdgeInsets.all(16),

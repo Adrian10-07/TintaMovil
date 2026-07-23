@@ -12,12 +12,6 @@ import '../../../achievements/data/services/achievement_service.dart';
 import '../../../recommendations/data/services/recent_documents_service.dart';
 import '../../../user/presentation/viewmodels/user_viewmodel.dart';
 
-/// Vista del visor de documentos (feature: document_viewer).
-///
-/// Muestra un PDF a pantalla completa con:
-///   - Botón ← en el AppBar → vuelve directo a Home.
-///   - Botón ✨ en el AppBar → abre el chat con Tinta AI (modo documento).
-///   - FAB → abre el panel de recomendaciones relacionadas.
 class PdfResultsView extends StatefulWidget {
   final File pdfFile;
 
@@ -28,7 +22,6 @@ class PdfResultsView extends StatefulWidget {
 }
 
 class _PdfResultsViewState extends State<PdfResultsView> {
-  // ── Paleta Tinta ──────────────────────────────────────────────
   static const _mintPrimary = Color(0xFF3DBF7A);
   static const _deepGreen = Color(0xFF1A4D2E);
   static const _warmGold = Color(0xFFF5C842);
@@ -47,9 +40,6 @@ class _PdfResultsViewState extends State<PdfResultsView> {
     _registerReadingActivity();
   }
 
-  /// El visor de PDF también cuenta como "leer" para la racha — antes
-  /// solo se contaba con abrir sesión, ahora se cuenta al entrar de
-  /// verdad a un documento (EPUB o PDF).
   Future<void> _registerReadingActivity() async {
     final userVm = sl<UserViewModel>();
     if (userVm.profile == null) {
@@ -73,7 +63,6 @@ class _PdfResultsViewState extends State<PdfResultsView> {
     }
   }
 
-  /// Nombre del archivo sin la ruta, para pasarlo al tutor como contexto.
   String get _fileName =>
       widget.pdfFile.path.split('/').last.split('\\').last;
 
@@ -106,15 +95,16 @@ class _PdfResultsViewState extends State<PdfResultsView> {
           ),
         ],
       ),
-      // ── El PDF ocupa toda la pantalla ──────────────────────────
-      body: PDFView(
-        filePath: widget.pdfFile.path,
-        enableSwipe: true,
-        swipeHorizontal: false,
-        autoSpacing: true,
-        pageFling: true,
+      body: SafeArea(
+        top: false,
+        child: PDFView(
+          filePath: widget.pdfFile.path,
+          enableSwipe: true,
+          swipeHorizontal: false,
+          autoSpacing: true,
+          pageFling: true,
+        ),
       ),
-      // ── Botón flotante para abrir el panel de recomendaciones ──
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openRecommendationsSheet(context),
         backgroundColor: _mintPrimary,

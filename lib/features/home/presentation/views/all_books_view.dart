@@ -3,13 +3,6 @@ import '../../domain/entities/book.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../components/book_card.dart';
 
-/// Muestra el catálogo completo de libros en una lista con carga
-/// perezosa (ListView.builder = el "LazyColumn" de Flutter): solo
-/// construye las tarjetas que están cerca de la pantalla visible.
-///
-/// Además detecta cuándo el usuario llega al final de la lista y pide
-/// más libros al [HomeViewModel] (que a su vez trae más de Gutendex),
-/// así que el catálogo sigue creciendo mientras se hace scroll.
 class AllBooksView extends StatefulWidget {
   final HomeViewModel viewModel;
   final void Function(Book) onBookTap;
@@ -63,7 +56,7 @@ class _AllBooksViewState extends State<AllBooksView> {
               ? const Center(child: Text('No hay libros en el catálogo.'))
               : ListView.builder(
             controller: _scrollController,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 12 + MediaQuery.of(context).padding.bottom),
             itemCount: books.length + (hasMore ? 1 : 0),
             itemBuilder: (context, index) {
               if (index == books.length) {

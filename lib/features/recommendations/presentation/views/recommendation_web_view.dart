@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-/// Abre la página de un libro recomendado dentro de la app, sin salir a
-/// un navegador externo. Se usa el `infoLink` que regresa el motor de
-/// recomendaciones (Diego) junto con cada resultado.
 class RecommendationWebView extends StatefulWidget {
   final String url;
   final String title;
@@ -42,11 +39,14 @@ class _RecommendationWebViewState extends State<RecommendationWebView> {
       appBar: AppBar(
         title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_isLoading) const Center(child: CircularProgressIndicator()),
-        ],
+      body: SafeArea(
+        top: false,
+        child: Stack(
+          children: [
+            WebViewWidget(controller: _controller),
+            if (_isLoading) const Center(child: CircularProgressIndicator()),
+          ],
+        ),
       ),
     );
   }

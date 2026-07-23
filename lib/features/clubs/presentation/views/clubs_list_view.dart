@@ -8,8 +8,6 @@ import 'package:flutter/material.dart';
 /// constructor con `embedded` ya coincide, así que no hay que tocar
 /// nada más (ni el CAPTCHA, ni el shell).
 class ClubsListView extends StatefulWidget {
-  /// Cuando es true, se usa como pestaña dentro de MainTabShell: no
-  /// dibuja su propio Scaffold ni barra inferior.
   final bool embedded;
 
   const ClubsListView({super.key, this.embedded = false});
@@ -43,7 +41,7 @@ class _ClubsListViewState extends State<ClubsListView> {
       ),
     );
 
-    if (widget.embedded) return content;
-    return Scaffold(body: content);
+    if (widget.embedded) return SafeArea(child: content);
+    return Scaffold(body: SafeArea(child: content));
   }
 }

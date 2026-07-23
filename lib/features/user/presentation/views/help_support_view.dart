@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/localization/app_strings.dart';
 
-/// Pantalla "Ayuda y soporte" — preguntas frecuentes estáticas + un
-/// formulario de feedback que abre la app de correo del usuario con un
-/// mailto: prellenado (asunto + cuerpo), listo para mandar.
 class HelpSupportView extends StatefulWidget {
   final String userEmail;
   const HelpSupportView({Key? key, required this.userEmail}) : super(key: key);
@@ -66,9 +63,6 @@ class _HelpSupportViewState extends State<HelpSupportView> {
     }
   }
 
-  /// Si el dispositivo no tiene una app de correo configurada,
-  /// launchUrl falla — en ese caso mostramos el correo y el mensaje para
-  /// que el usuario lo copie manualmente en vez de dejarlo sin opción.
   void _showNoMailAppDialog(String subject, String body) {
     showDialog(
       context: context,
@@ -97,7 +91,7 @@ class _HelpSupportViewState extends State<HelpSupportView> {
     return Scaffold(
       appBar: AppBar(title: Text(t.helpSupport)),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
         children: [
           Text(t.faq, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 10),
