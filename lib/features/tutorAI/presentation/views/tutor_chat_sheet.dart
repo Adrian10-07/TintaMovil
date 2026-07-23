@@ -10,16 +10,17 @@ import '../components/model_download_progress.dart';
 import '../components/tutor_header.dart';
 import '../viewmodels/tutor_chat_viewmodel.dart';
 
-
 class TutorChatSheet extends StatelessWidget {
   final String? documentContext;
 
   const TutorChatSheet({super.key, this.documentContext});
 
+  /// Helper para abrir el sheet desde cualquier vista. Centraliza la
+  /// configuración (drag handle, tamaños min/max, etc.).
   static Future<void> show(
-    BuildContext context, {
-    String? documentContext,
-  }) {
+      BuildContext context, {
+        String? documentContext,
+      }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -29,15 +30,21 @@ class TutorChatSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.85,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (_, scrollController) {
-            return TutorChatSheet(documentContext: documentContext);
-          },
+      builder: (sheetContext) {
+        return Padding(
+          // Empuja todo el sheet hacia arriba cuando el teclado aparece.
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+          ),
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.85,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            expand: false,
+            builder: (_, scrollController) {
+              return TutorChatSheet(documentContext: documentContext);
+            },
+          ),
         );
       },
     );
@@ -72,6 +79,7 @@ class _TutorChatSheetContent extends StatelessWidget {
       children: [
         TutorHeader(
           modeChipLabel: documentContext != null ? 'Modo Documento' : null,
+          connectionLabel: 'Offline',
         ),
         Expanded(child: _buildBody(context, vm)),
         if (vm.modelStatus.isReady)

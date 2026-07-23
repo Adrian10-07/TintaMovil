@@ -16,7 +16,11 @@ import 'club_chat_view.dart';
 
 /// Pantalla principal del tab "Club" con navbar global.
 class ClubsListView extends StatefulWidget {
-  const ClubsListView({super.key});
+  /// Cuando es true, se usa como pestaña dentro de [MainTabShell]:
+  /// no dibuja su propio Scaffold ni barra inferior.
+  final bool embedded;
+
+  const ClubsListView({super.key, this.embedded = false});
 
   @override
   State<ClubsListView> createState() => _ClubsListViewState();
@@ -123,59 +127,65 @@ class _ClubsListViewState extends State<ClubsListView>
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
-              child: Row(
-                children: [
-                  Expanded(child: Text('Clubes', style: textTheme.headlineMedium)),
-                  IconButton(
-                    onPressed: _showJoinByCode,
-                    icon: const Icon(Icons.qr_code_rounded),
-                    tooltip: 'Unirse con código',
-                  ),
-                  const SizedBox(width: 4),
-                  FilledButton.icon(
-                    onPressed: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const CreateClubView())),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Crear'),
-                  ),
-                ],
-              ),
+    final content = SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 12, 0),
+            child: Row(
+              children: [
+                Expanded(child: Text('Clubes', style: textTheme.headlineMedium)),
+                IconButton(
+                  onPressed: _showJoinByCode,
+                  icon: const Icon(Icons.qr_code_rounded),
+                  tooltip: 'Unirse con código',
+                ),
+                const SizedBox(width: 4),
+                FilledButton.icon(
+                  onPressed: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const CreateClubView())),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Crear'),
+                ),
+              ],
             ),
-            TabBar(controller: _tabController, tabs: const [
-              Tab(text: 'Explorar'),
-              Tab(text: 'Mis Clubes'),
+          ),
+          TabBar(controller: _tabController, tabs: const [
+            Tab(text: 'Explorar'),
+            Tab(text: 'Mis Clubes'),
+          ]),
+          Consumer<ClubsViewModel>(
+            builder: (_, vm, __) {
+              if (vm.currentTab != ClubsTab.explore) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                child: SearchBar(
+                  hintText: 'Buscar clubes...',
+                  leading: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+                  onChanged: vm.setSearchQuery,
+                  elevation: const WidgetStatePropertyAll(0),
+                  backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerHigh),
+                ),
+              );
+            },
+          ),
+          Expanded(
+            child: TabBarView(controller: _tabController, children: [
+              _ExploreTab(scrollController: _scrollController, onClubTap: (c) => _onClubTap(c)),
+              _MyClubsTab(onClubTap: (c) => _onClubTap(c, isMember: true)),
             ]),
-            Consumer<ClubsViewModel>(
-              builder: (_, vm, __) {
-                if (vm.currentTab != ClubsTab.explore) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                  child: SearchBar(
-                    hintText: 'Buscar clubes...',
-                    leading: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
-                    onChanged: vm.setSearchQuery,
-                    elevation: const WidgetStatePropertyAll(0),
-                    backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerHigh),
-                  ),
-                );
-              },
-            ),
-            Expanded(
-              child: TabBarView(controller: _tabController, children: [
-                _ExploreTab(scrollController: _scrollController, onClubTap: (c) => _onClubTap(c)),
-                _MyClubsTab(onClubTap: (c) => _onClubTap(c, isMember: true)),
-              ]),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+
+    // Como pestaña del shell: sin Scaffold ni bottomNavigationBar propios.
+    if (widget.embedded) return content;
+
+    // Uso independiente (fuera del shell).
+    return Scaffold(
+      body: content,
       bottomNavigationBar: TintaBottomNav(currentIndex: 3, onTap: _onNavTap),
     );
   }

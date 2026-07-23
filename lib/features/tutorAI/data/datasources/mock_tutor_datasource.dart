@@ -4,15 +4,15 @@ import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/model_download_status.dart';
 import 'tutor_llm_datasource.dart';
 
-/// Datasource simulado para usar en emuladores x86_64 donde fllama crashea.
-///
-/// Simula la descarga y generación de respuestas, permitiendo probar
-/// el flujo RAG y la interfaz de usuario sin requerir un dispositivo físico.
 class MockTutorDatasource implements TutorLlmDatasource {
   final StreamController<ModelDownloadStatus> _statusController =
       StreamController<ModelDownloadStatus>.broadcast();
 
   bool _isReady = false;
+
+  @override
+  ModelDownloadStatus get lastStatus =>
+      const ModelDownloadStatus(stage: ModelDownloadStage.idle);
 
   @override
   Stream<ModelDownloadStatus> get statusStream => _statusController.stream;

@@ -334,10 +334,14 @@
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/model_download_status.dart';
 import 'tutor_llm_datasource.dart';
-
+// YA no se usa
 class LlamaCppTutorDatasource implements TutorLlmDatasource {
   @override
   Stream<ModelDownloadStatus> get statusStream => const Stream.empty();
+
+  @override
+  ModelDownloadStatus get lastStatus =>
+      const ModelDownloadStatus(stage: ModelDownloadStage.idle);
 
   @override
   Future<void> ensureModelReady() async {

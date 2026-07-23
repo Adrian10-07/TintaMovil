@@ -20,10 +20,10 @@ class RemoteTutorChatSheet extends StatelessWidget {
   });
 
   static Future<void> show(
-    BuildContext context, {
-    required String documentContext,
-    required String remoteDocumentId,
-  }) {
+      BuildContext context, {
+        required String documentContext,
+        required String remoteDocumentId,
+      }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -33,14 +33,20 @@ class RemoteTutorChatSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (_, __) => RemoteTutorChatSheet(
-          documentContext: documentContext,
-          remoteDocumentId: remoteDocumentId,
+      builder: (sheetContext) => Padding(
+        // Empuja todo el sheet hacia arriba cuando el teclado aparece.
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, __) => RemoteTutorChatSheet(
+            documentContext: documentContext,
+            remoteDocumentId: remoteDocumentId,
+          ),
         ),
       ),
     );
@@ -153,6 +159,21 @@ class _Header extends StatelessWidget {
               'Modo Documento',
               style: tt.labelSmall?.copyWith(
                 color: cs.onPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: cs.tertiaryContainer,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Online',
+              style: tt.labelSmall?.copyWith(
+                color: cs.onTertiaryContainer,
                 fontWeight: FontWeight.w700,
               ),
             ),

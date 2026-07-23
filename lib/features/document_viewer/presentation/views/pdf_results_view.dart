@@ -147,6 +147,7 @@ class _PdfResultsViewState extends State<PdfResultsView> {
 
       if (mounted) setState(() => _remoteDocument = doc);
       _startPollingIfNeeded();
+      debugPrint('🔍 DOCUMENT ID: ${doc.id} — STATUS: ${doc.status}');
     } catch (e) {
       if (mounted) setState(() => _tutorError = e.toString());
     } finally {
