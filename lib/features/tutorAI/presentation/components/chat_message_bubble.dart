@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/chat_message.dart';
+import 'tts_message_actions.dart';
 
 /// Burbuja de un mensaje en el chat.
 ///
 /// - Usuario: alineada a la derecha, fondo verde primario, texto blanco.
 /// - Asistente: alineada a la izquierda, fondo gris muy claro, texto principal.
+///   Debajo de cada burbuja del asistente (cuando ya terminó de generar)
+///   se muestran los botones de TTS: Escuchar y Guardar audio.
 ///
 /// Mientras `isStreaming` es true se muestra un cursor parpadeante al final
 /// del texto, simulando el typing en tiempo real.
@@ -17,7 +20,15 @@ class ChatMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (message.isUser) return _UserBubble(message: message);
-    return _AssistantBubble(message: message);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _AssistantBubble(message: message),
+        // Acciones TTS: solo se muestran cuando el mensaje terminó de generar.
+        if (message.isAssistant && !message.isStreaming && message.content.isNotEmpty)
+          TtsMessageActions(message: message),
+      ],
+    );
   }
 }
 

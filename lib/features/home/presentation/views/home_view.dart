@@ -19,6 +19,7 @@ import '../components/currently_reading_section.dart';
 import '../../../../main.dart' show appRouteObserver;
 import '../../../../core/presentation/utils/page_transitions.dart';
 import '../../../tutorAI/presentation/components/tutor_model_download_banner.dart';
+import '../../../premium/presentation/components/premium_home_banner.dart';
 
 class HomeView extends StatefulWidget {
   final HomeViewModel viewModel;
@@ -309,6 +310,14 @@ class _CatalogContent extends StatelessWidget {
               streakDays: streakDays,
               completedDayIndices: completedDayIndices,
             ),
+          ),
+        ),
+
+        // Banner de Premium / Suscripción
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: PremiumHomeBanner(),
           ),
         ),
 
