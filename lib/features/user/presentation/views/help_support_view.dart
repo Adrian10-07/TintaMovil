@@ -14,8 +14,7 @@ class HelpSupportView extends StatefulWidget {
 }
 
 class _HelpSupportViewState extends State<HelpSupportView> {
-  // Cambia esto por el correo real del equipo cuando lo tengan.
-  static const _supportEmail = 'soporte.tinta@gmail.com';
+  static const _supportEmail = 'tintaappmovil@gmail.com';
 
   final _subjectController = TextEditingController();
   final _messageController = TextEditingController();

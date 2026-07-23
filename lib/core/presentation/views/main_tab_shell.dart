@@ -9,6 +9,9 @@ import '../../../features/recommendations/presentation/views/recommendations_vie
 import '../../../features/recommendations/presentation/views/upload_book_view.dart';
 import '../../../features/user/presentation/views/user_view.dart';
 import '../../../features/user/presentation/viewmodels/user_viewmodel.dart';
+import '../../../features/clubs/presentation/views/clubs_list_view.dart';
+import '../../../features/clubs/data/services/captcha_gate_service.dart';
+import '../../../features/clubs/presentation/views/club_captcha_view.dart';
 
 /// Shell raíz de la app tras el login.
 ///
@@ -32,6 +35,10 @@ class _MainTabShellState extends State<MainTabShell> {
   int _index = 0;
   late final HomeViewModel _homeViewModel;
 
+  // Se carga una sola vez por sesión de la app; null = todavía cargando.
+  bool? _captchaPassed;
+  String? _captchaCheckedForUserId;
+
   @override
   void initState() {
     super.initState();
@@ -39,19 +46,44 @@ class _MainTabShellState extends State<MainTabShell> {
   }
 
   void _onTap(int index) {
-    if (index == 3) return; // Club: pendiente de implementar.
     setState(() => _index = index);
+  }
+
+  Future<void> _loadCaptchaStatus(String userId) async {
+    _captchaCheckedForUserId = userId;
+    final passed = await CaptchaGateService.hasPassed(userId);
+    if (mounted && _captchaCheckedForUserId == userId) {
+      setState(() => _captchaPassed = passed);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final userId = context.watch<UserViewModel>().profile?.id ?? '';
 
+    // Dispara la carga del estado del CAPTCHA la primera vez que ya
+    // tenemos un userId real (evita pedirlo de más o de menos).
+    if (userId.isNotEmpty && _captchaCheckedForUserId != userId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadCaptchaStatus(userId));
+    }
+
+    Widget clubTab;
+    if (userId.isEmpty || _captchaPassed == null) {
+      clubTab = const Center(child: CircularProgressIndicator());
+    } else if (_captchaPassed == true) {
+      clubTab = const ClubsListView(embedded: true);
+    } else {
+      clubTab = ClubCaptchaView(
+        userId: userId,
+        onPassed: () => setState(() => _captchaPassed = true),
+      );
+    }
+
     final tabs = <Widget>[
       HomeView(viewModel: _homeViewModel, defaultQuery: '', embedded: true),
       const RecommendationsView(embedded: true),
       UploadBookView(userId: userId, embedded: true),
-      const _ClubPlaceholder(),
+      clubTab,
       const UserView(),
     ];
 
@@ -60,31 +92,6 @@ class _MainTabShellState extends State<MainTabShell> {
       bottomNavigationBar: TintaBottomNav(
         currentIndex: _index,
         onTap: _onTap,
-      ),
-    );
-  }
-}
-
-class _ClubPlaceholder extends StatelessWidget {
-  const _ClubPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.groups_rounded,
-                size: 48, color: colorScheme.onSurface.withOpacity(0.3)),
-            const SizedBox(height: 12),
-            Text(
-              'Club — próximamente',
-              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
-            ),
-          ],
-        ),
       ),
     );
   }

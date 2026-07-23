@@ -29,4 +29,14 @@ class UserRepositoryImpl implements UserRepository {
   Future<void> deleteAccount() async {
     await _remoteDataSource.deleteAccount();
   }
+
+  @override
+  Future<String?> requestVerificationCode() async {
+    return await _remoteDataSource.requestVerificationCode();
+  }
+
+  @override
+  Future<void> verifyEmailCode(String code) async {
+    await _remoteDataSource.verifyEmailCode(code);
+  }
 }

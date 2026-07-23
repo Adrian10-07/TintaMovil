@@ -4,4 +4,6 @@ abstract class UserRepository {
   Future<User> getProfile();
   Future<User> updateProfile({String? name, String? avatarUrl, String? language});
   Future<void> deleteAccount();
+  Future<String?> requestVerificationCode();
+  Future<void> verifyEmailCode(String code);
 }

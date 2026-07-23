@@ -314,7 +314,7 @@ class _UserViewState extends State<UserView> {
                 label: t.logout,
                 iconColor: colorScheme.error,
                 showChevron: false,
-                onTap: () => _showLogoutDialog(context),
+                onTap: () => _showLogoutDialog(context, t),
               ),
             ]),
             const SizedBox(height: 40),
@@ -324,8 +324,7 @@ class _UserViewState extends State<UserView> {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
-    final t = AppStrings.of(context);
+  void _showLogoutDialog(BuildContext context, AppStrings t) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -337,16 +336,7 @@ class _UserViewState extends State<UserView> {
             child: Text(t.cancel),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              final authVM = sl<AuthViewModel>();
-              authVM.logout().then((_) {
-                if (context.mounted) {
-                  context.read<UserViewModel>().clearProfile();
-                  Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                }
-              });
-            },
+            onPressed: () => _performLogout(context, ctx),
             child: Text(
               t.logout,
               style: TextStyle(
@@ -357,6 +347,25 @@ class _UserViewState extends State<UserView> {
         ],
       ),
     );
+  }
+
+  /// Cierra sesión de forma LOCAL-PRIMERO: limpia tokens/perfil y navega
+  /// a Login de inmediato, sin esperar a la red. La llamada al backend
+  /// para revocar el refresh token se manda en segundo plano — si falla
+  /// (sin internet, servidor caído, etc.) no bloquea ni retrasa nada,
+  /// porque el usuario de todas formas ya salió de su sesión localmente.
+  void _performLogout(BuildContext context, BuildContext dialogContext) {
+    Navigator.pop(dialogContext); // cierra el diálogo de confirmación
+
+    final authVM = sl<AuthViewModel>();
+
+    // 1. Local, instantáneo — esto SIEMPRE funciona, no depende de red.
+    context.read<UserViewModel>().clearProfile();
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+
+    // 2. Revocar el refresh token en el backend, en segundo plano.
+    //    Silencioso a propósito: si falla, el usuario ya salió igual.
+    authVM.logout().catchError((_) {});
   }
 
   String _formatDate(DateTime date) {

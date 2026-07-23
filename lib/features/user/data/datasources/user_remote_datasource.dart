@@ -2,10 +2,6 @@ import '../../../../core/network/http_client.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/data/models/user_model.dart';
 
-/// DataSource remoto para operaciones de perfil de usuario.
-///
-/// Mismo servicio Identity que auth:
-/// https://tintaapi-production-identity.up.railway.app
 class UserRemoteDataSource {
   final ApiClient _apiClient;
 
@@ -24,11 +20,6 @@ class UserRemoteDataSource {
   }
 
   /// PATCH /users/me — Actualiza campos del perfil.
-  ///
-  /// Request (campos opcionales):
-  /// { "name": "...", "avatar_url": "...", "language": "es" }
-  ///
-  /// El backend solo actualiza los campos que vengan en el body.
   Future<User> updateProfile({
     String? name,
     String? avatarUrl,
@@ -49,5 +40,30 @@ class UserRemoteDataSource {
   /// DELETE /users/me — Elimina la cuenta (204).
   Future<void> deleteAccount() async {
     await _apiClient.delete('$_baseUrl/users/me');
+  }
+
+  /// POST /auth/verification/request — Pide al backend generar un código
+  /// de verificación de 6 dígitos y lo asocia al usuario autenticado.
+  ///
+  /// El backend responde { message, code, expires_at }. El campo `code`
+  /// sigue viniendo como respaldo por si el correo tarda, aunque ya se
+  /// manda correo real por Gmail SMTP.
+  Future<String?> requestVerificationCode() async {
+    final data = await _apiClient.post(
+      '$_baseUrl/auth/verification/request',
+      body: const {},
+      auth: true,
+    );
+    return (data as Map<String, dynamic>)['code'] as String?;
+  }
+
+  /// POST /auth/verification/verify — Confirma el código de 6 dígitos
+  /// y marca el correo como verificado en el backend.
+  Future<void> verifyEmailCode(String code) async {
+    await _apiClient.post(
+      '$_baseUrl/auth/verification/verify',
+      body: {'code': code},
+      auth: true,
+    );
   }
 }
