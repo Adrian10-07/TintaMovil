@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/settings/app_settings_controller.dart';
 import '../../../../core/localization/app_strings.dart';
 
-/// Pantalla "Apariencia" — elegir tema (Claro/Oscuro/Azul/Súper negro)
-/// y tamaño de texto. Cambia [AppSettingsController], que ya está
-/// escuchado por MaterialApp en main.dart, así que el cambio se ve al
-/// instante en toda la app sin reiniciar.
 class AppearanceSettingsView extends StatelessWidget {
   final AppSettingsController controller;
   const AppearanceSettingsView({Key? key, required this.controller}) : super(key: key);
@@ -21,7 +17,7 @@ class AppearanceSettingsView extends StatelessWidget {
         return Scaffold(
           appBar: AppBar(title: Text(t.appearance)),
           body: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
             children: [
               Text(t.theme, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 10),

@@ -13,99 +13,102 @@ class BookDetailView extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      body: TintaBackground(
-        blobs: [
-          BlobConfig(top: -80, right: -60, color: colorScheme.primary, size: 280, opacity: 0.12),
-          BlobConfig(bottom: -100, left: -80, color: MaterialTheme.warmGold, size: 250, opacity: 0.08),
-        ],
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 320,
-              pinned: true,
-              backgroundColor: colorScheme.surface,
-              flexibleSpace: FlexibleSpaceBar(background: _BookCover(book: book)),
-              leading: _BackButton(),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(book.title, style: textTheme.headlineMedium),
-                    const SizedBox(height: 8),
-                    Text(
-                      book.authors.join(', '),
-                      style: textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurface.withOpacity(0.60),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _InfoChip(
-                          icon: Icons.lock_open_rounded,
-                          label: 'EPUB disponible',
-                          highlight: true,
-                        ),
-                        _InfoChip(
-                          icon: book.category == 'Estudio' || book.category == 'Ciencia' || book.category == 'Filosofía'
-                              ? Icons.school_rounded
-                              : Icons.menu_book_rounded,
-                          label: book.category,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (book.subjects.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: book.subjects
-                            .map((s) => _SubjectTag(label: s))
-                            .toList(),
-                      ),
-                      const SizedBox(height: 28),
-                    ] else
-                      const SizedBox(height: 28),
-
-                    if (book.description != null && book.description!.isNotEmpty) ...[
-                      Text('Sinopsis', style: textTheme.titleLarge),
-                      const SizedBox(height: 12),
+      body: SafeArea(
+        top: false,
+        child: TintaBackground(
+          blobs: [
+            BlobConfig(top: -80, right: -60, color: colorScheme.primary, size: 280, opacity: 0.12),
+            BlobConfig(bottom: -100, left: -80, color: MaterialTheme.warmGold, size: 250, opacity: 0.08),
+          ],
+          child: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 320,
+                pinned: true,
+                backgroundColor: colorScheme.surface,
+                flexibleSpace: FlexibleSpaceBar(background: _BookCover(book: book)),
+                leading: _BackButton(),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(book.title, style: textTheme.headlineMedium),
+                      const SizedBox(height: 8),
                       Text(
-                        book.description!,
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.75),
-                          height: 1.7,
+                        book.authors.join(', '),
+                        style: textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.60),
                         ),
                       ),
-                      const SizedBox(height: 32),
-                    ],
+                      const SizedBox(height: 16),
 
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/reader',
-                            arguments: book,
-                          );
-                        },
-                        icon: const Icon(Icons.auto_stories_rounded),
-                        label: const Text('Leer libro completo'),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _InfoChip(
+                            icon: Icons.lock_open_rounded,
+                            label: 'EPUB disponible',
+                            highlight: true,
+                          ),
+                          _InfoChip(
+                            icon: book.category == 'Estudio' || book.category == 'Ciencia' || book.category == 'Filosofía'
+                                ? Icons.school_rounded
+                                : Icons.menu_book_rounded,
+                            label: book.category,
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+
+                      if (book.subjects.isNotEmpty) ...[
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: book.subjects
+                              .map((s) => _SubjectTag(label: s))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 28),
+                      ] else
+                        const SizedBox(height: 28),
+
+                      if (book.description != null && book.description!.isNotEmpty) ...[
+                        Text('Sinopsis', style: textTheme.titleLarge),
+                        const SizedBox(height: 12),
+                        Text(
+                          book.description!,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.75),
+                            height: 1.7,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/reader',
+                              arguments: book,
+                            );
+                          },
+                          icon: const Icon(Icons.auto_stories_rounded),
+                          label: const Text('Leer libro completo'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

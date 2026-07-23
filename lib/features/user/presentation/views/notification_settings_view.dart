@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../notifications/data/services/notification_settings_service.dart';
 import '../../../../core/localization/app_strings.dart';
 
-/// Pantalla "Notificaciones" — enciende/apaga cada tipo de notificación
-/// in-app real que genera la app (racha, documentos subidos,
-/// recomendaciones nuevas). Se persiste por usuario.
 class NotificationSettingsView extends StatefulWidget {
   final String userId;
   const NotificationSettingsView({Key? key, required this.userId}) : super(key: key);
@@ -50,7 +47,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
       body: _values == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 8, left: 4),

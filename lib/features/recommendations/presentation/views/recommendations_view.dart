@@ -254,7 +254,7 @@ class _RecommendationsViewState extends State<RecommendationsView> {
       color: _mintPrimary,
       onRefresh: _load,
       child: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
         itemCount: _items!.length + 1,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (_, i) {

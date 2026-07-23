@@ -159,9 +159,6 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
     }
 
     // 1. Dividir el markdown por conceptos ("### Título" + su cuerpo).
-    //    Cada concepto ya es corto y autocontenido por diseño, así que se
-    //    vuelve un chunk propio en vez de pasar por el chunker de PDFs
-    //    (que corta cada ~300 palabras sin respetar límites de concepto).
     final sections = _splitMarkdownByConcept(markdownContent);
     onProgress?.call(0.30);
 
@@ -214,8 +211,6 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
   }
 
   /// Divide el markdown en secciones por cada encabezado "### ".
-  /// El texto antes del primer "### " (títulos "#"/"##" y notas) se
-  /// descarta porque no es un concepto indexable.
   List<String> _splitMarkdownByConcept(String markdown) {
     final lines = markdown.split('\n');
     final sections = <String>[];
@@ -229,7 +224,7 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
         }
         buffer.clear();
         inSection = true;
-        buffer.writeln(line.substring(4).trim()); // título sin "### "
+        buffer.writeln(line.substring(4).trim());
       } else if (inSection) {
         buffer.writeln(line);
       }

@@ -193,27 +193,6 @@ class _LoginViewState extends State<LoginView> {
                             validator: (v) => v!.isEmpty ? 'Requerido' : null,
                           ),
 
-                          const SizedBox(height: 8),
-
-                          // Olvidé contraseña
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {}, // UI only
-                              style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: const Size(0, 36)),
-                              child: Text(
-                                '¿Olvidaste tu contraseña?',
-                                style: TextStyle(
-                                  fontFamily: 'DMSans',
-                                  fontSize: 13,
-                                  color: _mintPrimary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -269,58 +248,6 @@ class _LoginViewState extends State<LoginView> {
                           ),
                         );
                       },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // ── Separador ────────────────────────────────
-                    Row(
-                      children: [
-                        Expanded(
-                            child: Divider(
-                                color: _lightText.withOpacity(0.12),
-                                thickness: 1)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Text('o',
-                              style: TextStyle(
-                                  fontFamily: 'DMSans',
-                                  color: _mutedText,
-                                  fontSize: 13)),
-                        ),
-                        Expanded(
-                            child: Divider(
-                                color: _lightText.withOpacity(0.12),
-                                thickness: 1)),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // ── Continuar con Google (UI) ────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: () {}, // UI only
-                        icon: const Icon(Icons.g_mobiledata_rounded,
-                            size: 24, color: Color(0xFF4285F4)),
-                        label: Text(
-                          'Continuar con Google',
-                          style: TextStyle(
-                            fontFamily: 'DMSans',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                            color: _lightText,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                              color: _lightText.withOpacity(0.15), width: 1.5),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                        ),
-                      ),
                     ),
 
                     const SizedBox(height: 32),

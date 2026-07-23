@@ -49,7 +49,6 @@ import '../../features/knowledge_base/data/services/pdf_text_extractor.dart';
 import '../../features/knowledge_base/data/services/text_chunker.dart';
 import '../../features/knowledge_base/data/services/tfidf_engine.dart';
 import '../../features/knowledge_base/domain/repositories/knowledge_repository.dart';
-import '../../features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
 
 // Clubs
 import '../../features/clubs/data/datasources/club_remote_datasource.dart';
@@ -188,12 +187,6 @@ void registerKnowledgeBase() {
       tfidfEngine: sl(),
       datasource: sl(),
     ),
-  );
-
-  // Encuesta post-registro: qué bases de conocimiento descargar.
-  // registerFactory: nueva instancia cada vez que se abre la encuesta.
-  sl.registerFactory<KnowledgeBaseSurveyViewModel>(
-        () => KnowledgeBaseSurveyViewModel(sl<KnowledgeRepository>()),
   );
 }
 

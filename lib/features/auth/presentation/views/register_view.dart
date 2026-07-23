@@ -24,13 +24,13 @@ class _RegisterViewState extends State<RegisterView> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  // ── Paleta Tinta ──────────────────────────────────────────────
-  static const _mintPrimary    = Color(0xFF3DBF7A);
-  static const _deepGreen      = Color(0xFF1A4D2E);
-  static const _warmGold       = Color(0xFFF5C842);
-  static const _peach          = Color(0xFFFFBF9B);
-  static const _offWhite       = Color(0xFFF2F5EF);
-  static const _darkText       = Color(0xFF1A2B1F);
+  // ── Paleta Tinta (versión negra, igual que Login) ────────────
+  static const _mintPrimary = Color(0xFF3DBF7A);
+  static const _warmGold    = Color(0xFFF5C842);
+  static const _peach       = Color(0xFFFFBF9B);
+  static const _pureBlack   = Color(0xFF000000);
+  static const _lightText   = Color(0xFFE8EAE6);
+  static const _mutedText   = Color(0xFF9AA0A6);
 
   @override
   void initState() {
@@ -62,27 +62,27 @@ class _RegisterViewState extends State<RegisterView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _offWhite,
+      backgroundColor: _pureBlack,
       body: Stack(
         children: [
-          // ── Blobs decorativos ────────────────────────────────
+          // ── Blobs decorativos de fondo (tenues sobre negro) ──
           Positioned(
             top: -100,
             left: -80,
-            child: _Blob(color: _warmGold.withOpacity(0.15), size: 300),
+            child: _Blob(color: _warmGold.withOpacity(0.12), size: 300),
           ),
           Positioned(
             bottom: -80,
             right: -60,
-            child: _Blob(color: _mintPrimary.withOpacity(0.16), size: 260),
+            child: _Blob(color: _mintPrimary.withOpacity(0.14), size: 260),
           ),
           Positioned(
             top: 260,
             right: -30,
-            child: _Blob(color: _peach.withOpacity(0.14), size: 170),
+            child: _Blob(color: _peach.withOpacity(0.08), size: 170),
           ),
 
-          // ── Grilla de puntos ─────────────────────────────────
+          // ── Grilla de puntos sutil ───────────────────────────
           Positioned.fill(
             child: CustomPaint(painter: _DotGridPainter()),
           ),
@@ -105,35 +105,36 @@ class _RegisterViewState extends State<RegisterView> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: const Color(0xFF121212),
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _darkText.withOpacity(0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                          border: Border.all(color: Colors.white.withOpacity(0.08)),
                         ),
                         child: Icon(Icons.arrow_back_rounded,
-                            color: _darkText, size: 20),
+                            color: _lightText, size: 20),
                       ),
                     ),
 
                     const SizedBox(height: 32),
 
-                    // Logo / wordmark
+                    // Logo / wordmark — usa el ícono real de la app
                     Row(
                       children: [
                         Container(
                           width: 42,
                           height: 42,
+                          clipBehavior: Clip.antiAlias,
                           decoration: BoxDecoration(
-                            color: _mintPrimary,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.auto_stories_rounded,
-                              color: Colors.white, size: 22),
+                          child: Image.asset(
+                            'assets/icon/icon.png',
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: _mintPrimary,
+                              child: const Icon(Icons.auto_stories_rounded,
+                                  color: Colors.white, size: 22),
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -142,7 +143,7 @@ class _RegisterViewState extends State<RegisterView> {
                             fontFamily: 'PlusJakartaSans',
                             fontWeight: FontWeight.w800,
                             fontSize: 28,
-                            color: _deepGreen,
+                            color: _lightText,
                             letterSpacing: -0.5,
                           ),
                         ),
@@ -159,7 +160,7 @@ class _RegisterViewState extends State<RegisterView> {
                         fontWeight: FontWeight.w800,
                         fontSize: 36,
                         height: 1.15,
-                        color: _darkText,
+                        color: _lightText,
                         letterSpacing: -0.8,
                       ),
                     ),
@@ -169,14 +170,14 @@ class _RegisterViewState extends State<RegisterView> {
                       style: TextStyle(
                         fontFamily: 'DMSans',
                         fontSize: 15,
-                        color: _darkText.withOpacity(0.55),
+                        color: _mutedText,
                       ),
                     ),
 
                     const SizedBox(height: 32),
 
-                    // ── Tarjeta neumórfica ───────────────────────
-                    _NeumorphicCard(
+                    // ── Tarjeta oscura ────────────────────────────
+                    _DarkCard(
                       child: Column(
                         children: [
                           // Nombre completo
@@ -212,7 +213,7 @@ class _RegisterViewState extends State<RegisterView> {
                                 _obscurePassword
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
-                                color: _darkText.withOpacity(0.4),
+                                color: _mutedText,
                                 size: 20,
                               ),
                               onPressed: () => setState(
@@ -248,7 +249,7 @@ class _RegisterViewState extends State<RegisterView> {
                       children: [
                         const SizedBox(width: 4),
                         Icon(Icons.info_outline_rounded,
-                            size: 14, color: _darkText.withOpacity(0.35)),
+                            size: 14, color: _mutedText.withOpacity(0.7)),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -256,7 +257,7 @@ class _RegisterViewState extends State<RegisterView> {
                             style: TextStyle(
                               fontFamily: 'DMSans',
                               fontSize: 12,
-                              color: _darkText.withOpacity(0.40),
+                              color: _mutedText.withOpacity(0.75),
                               height: 1.5,
                             ),
                           ),
@@ -318,58 +319,6 @@ class _RegisterViewState extends State<RegisterView> {
                       },
                     ),
 
-                    const SizedBox(height: 16),
-
-                    // ── Separador ────────────────────────────────
-                    Row(
-                      children: [
-                        Expanded(
-                            child: Divider(
-                                color: _darkText.withOpacity(0.12),
-                                thickness: 1)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Text('o',
-                              style: TextStyle(
-                                  fontFamily: 'DMSans',
-                                  color: _darkText.withOpacity(0.35),
-                                  fontSize: 13)),
-                        ),
-                        Expanded(
-                            child: Divider(
-                                color: _darkText.withOpacity(0.12),
-                                thickness: 1)),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // ── Continuar con Google (UI) ────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: () {}, // UI only
-                        icon: const Icon(Icons.g_mobiledata_rounded,
-                            size: 24, color: Color(0xFF4285F4)),
-                        label: Text(
-                          'Continuar con Google',
-                          style: TextStyle(
-                            fontFamily: 'DMSans',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                            color: _darkText,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                              color: _darkText.withOpacity(0.15), width: 1.5),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                        ),
-                      ),
-                    ),
-
                     const SizedBox(height: 32),
 
                     // ── Ir a Login ───────────────────────────────
@@ -382,7 +331,7 @@ class _RegisterViewState extends State<RegisterView> {
                             style: TextStyle(
                               fontFamily: 'DMSans',
                               fontSize: 14,
-                              color: _darkText.withOpacity(0.55),
+                              color: _mutedText,
                             ),
                           ),
                           GestureDetector(
@@ -422,7 +371,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
   static const _mintPrimary = Color(0xFF3DBF7A);
   static const _warmGold    = Color(0xFFF5C842);
   static const _coral       = Color(0xFFFF7E7E);
-  static const _darkText    = Color(0xFF1A2B1F);
+  static const _lightText   = Color(0xFFE8EAE6);
 
   const _PasswordStrengthIndicator({required this.password});
 
@@ -436,13 +385,8 @@ class _PasswordStrengthIndicator extends StatelessWidget {
     final hasLetter = password.contains(RegExp(r'[a-zA-Z]'));
     final hasDigit = password.contains(RegExp(r'[0-9]'));
 
-    // No cumple requisitos mínimos
     if (password.length < 8 || !hasLetter || !hasDigit) return 1;
-
-    // Cumple mínimos pero corta
     if (password.length < 12) return 2;
-
-    // Cumple mínimos y es larga
     return 3;
   }
 
@@ -463,7 +407,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
               decoration: BoxDecoration(
                 color: active
                     ? colors[level]
-                    : _darkText.withOpacity(0.10),
+                    : _lightText.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -485,7 +429,7 @@ class _PasswordStrengthIndicator extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Widgets de apoyo compartidos
+// Widgets de apoyo (mismos que Login, para que quede idéntico)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Blob extends StatelessWidget {
@@ -508,7 +452,7 @@ class _DotGridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const spacing = 28.0;
     final paint = Paint()
-      ..color = const Color(0xFF1A2B1F).withOpacity(0.055)
+      ..color = const Color(0xFFE8EAE6).withOpacity(0.045)
       ..strokeCap = StrokeCap.round;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
@@ -521,29 +465,18 @@ class _DotGridPainter extends CustomPainter {
   bool shouldRepaint(_DotGridPainter old) => false;
 }
 
-class _NeumorphicCard extends StatelessWidget {
+class _DarkCard extends StatelessWidget {
   final Widget child;
-  const _NeumorphicCard({required this.child});
+  const _DarkCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F5EF),
+        color: const Color(0xFF121212),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.white.withOpacity(0.9),
-            offset: const Offset(-6, -6),
-            blurRadius: 12,
-          ),
-          BoxShadow(
-            color: const Color(0xFF1A2B1F).withOpacity(0.10),
-            offset: const Offset(6, 6),
-            blurRadius: 14,
-          ),
-        ],
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       child: child,
     );
@@ -585,20 +518,19 @@ class _TintaField extends StatelessWidget {
       style: const TextStyle(
         fontFamily: 'DMSans',
         fontSize: 15,
-        color: Color(0xFF1A2B1F),
+        color: Color(0xFFE8EAE6),
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(
+        labelStyle: const TextStyle(
           fontFamily: 'DMSans',
           fontSize: 14,
-          color: const Color(0xFF1A2B1F).withOpacity(0.45),
+          color: Color(0xFF9AA0A6),
         ),
-        prefixIcon: Icon(icon,
-            size: 20, color: const Color(0xFF1A2B1F).withOpacity(0.4)),
+        prefixIcon: Icon(icon, size: 20, color: const Color(0xFF9AA0A6)),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: const Color(0xFFECF0E9),
+        fillColor: const Color(0xFF1C1C1E),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,

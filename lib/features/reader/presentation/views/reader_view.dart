@@ -307,7 +307,7 @@ void _openRemoteGeneralChat(Book book) {
           ),
         ],
       ),
-      body: _buildBody(book),
+      body: SafeArea(top: false, child: _buildBody(book)),
       floatingActionButton: _epubController == null
           ? null
           : FloatingActionButton.extended(

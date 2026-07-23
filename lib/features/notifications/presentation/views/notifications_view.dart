@@ -20,8 +20,6 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   Future<void> _load() async {
-    // Marcar como leídas al abrir la bandeja — así el punto rojo de la
-    // campana desaparece en cuanto el usuario ya las vio.
     await NotificationService.markAllRead(widget.userId);
     final items = await NotificationService.getAll(widget.userId);
     if (mounted) setState(() => _notifications = items);
@@ -56,7 +54,7 @@ class _NotificationsViewState extends State<NotificationsView> {
         ),
       )
           : ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
         itemCount: _notifications!.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {

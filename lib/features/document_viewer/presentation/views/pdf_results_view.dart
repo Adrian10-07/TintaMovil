@@ -29,6 +29,9 @@ final _connectivityChecker = ConnectivityChecker();
 /// Vista del visor de documentos (feature: document_viewer).
 ///
 /// Muestra un PDF a pantalla completa con:
+///   - Botón de regreso explícito → siempre vuelve a Home, sin importar
+///     cómo se haya llegado a esta pantalla (push, pushReplacement, o
+///     apilado varias veces).
 ///   - Botón ✨ en el AppBar → abre el chat con Tinta AI en modo híbrido
 ///     (remoto con RAG si hay internet, local con Gemma si no).
 ///   - FAB → abre el panel de recomendaciones relacionadas.
@@ -147,7 +150,6 @@ class _PdfResultsViewState extends State<PdfResultsView> {
 
       if (mounted) setState(() => _remoteDocument = doc);
       _startPollingIfNeeded();
-      debugPrint('🔍 DOCUMENT ID: ${doc.id} — STATUS: ${doc.status}');
     } catch (e) {
       if (mounted) setState(() => _tutorError = e.toString());
     } finally {
@@ -200,9 +202,6 @@ class _PdfResultsViewState extends State<PdfResultsView> {
   // ══════════════════════════════════════════════════════════════════
 
   void _openTutorChat() async {
-    // Mostrar feedback inmediato mientras se verifica conectividad, para que
-    // el usuario no sienta que el botón no respondió (la verificación puede
-    // tardar hasta 2 segundos si no hay red).
     _showLoadingSnackbar('Abriendo tutor…');
 
     final hasInternet = await _connectivityChecker.hasInternet();
@@ -220,16 +219,13 @@ class _PdfResultsViewState extends State<PdfResultsView> {
     TutorChatSheet.show(
       context,
       documentContext: _fileName,
-      pdfFilePath: widget.pdfFile.path, // ← NUEVO
+      pdfFilePath: widget.pdfFile.path,
     );
   }
 
   void _openRemoteTutorChatFlow() {
     final doc = _remoteDocument;
 
-    // Sin documento subido aún (o falló la subida) → cae a local en vez de
-    // dejar al usuario esperando indefinidamente. Es preferible una
-    // respuesta sin RAG del documento a no responder nada.
     if (doc == null) {
       _openLocalTutorChatFlow();
       return;
@@ -241,14 +237,13 @@ class _PdfResultsViewState extends State<PdfResultsView> {
         documentContext: _fileName,
         remoteDocumentId: doc.id,
         onSwitchToOffline: () {
-          Navigator.of(context).pop(); // cierra el sheet remoto
-          _openLocalTutorChatFlow(); // abre el local con el mismo PDF
+          Navigator.of(context).pop();
+          _openLocalTutorChatFlow();
         },
       );
       return;
     }
 
-    // Documento aún procesando o falló → sheet de espera (ya existente).
     _showIndexingSheet(doc);
   }
 
@@ -305,6 +300,18 @@ class _PdfResultsViewState extends State<PdfResultsView> {
 
     return Scaffold(
       appBar: AppBar(
+        // Botón explícito de regreso: siempre vuelve a Home, sin
+        // importar cómo se llegó a esta pantalla (push normal,
+        // pushReplacement desde el análisis de subida, o si por algún
+        // bug quedaran varias copias apiladas). Reemplaza toda la pila
+        // de navegación en vez de solo hacer pop().
+        leading: IconButton(
+          tooltip: 'Volver al inicio',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context, '/home', (route) => false,
+          ),
+        ),
         title: Text(_fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
@@ -314,12 +321,15 @@ class _PdfResultsViewState extends State<PdfResultsView> {
           ),
         ],
       ),
-      body: PDFView(
-        filePath: widget.pdfFile.path,
-        enableSwipe: true,
-        swipeHorizontal: false,
-        autoSpacing: true,
-        pageFling: true,
+      body: SafeArea(
+        top: false,
+        child: PDFView(
+          filePath: widget.pdfFile.path,
+          enableSwipe: true,
+          swipeHorizontal: false,
+          autoSpacing: true,
+          pageFling: true,
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openRecommendationsSheet(context),
