@@ -17,6 +17,8 @@ import 'features/home/presentation/views/book_detail_view.dart';
 import 'features/reader/presentation/views/reader_view.dart';
 import 'core/presentation/views/main_tab_shell.dart';
 import 'core/settings/app_settings_controller.dart';
+import 'features/legal/data/services/disclaimer_service.dart';
+import 'features/legal/presentation/views/disclaimer_view.dart';
 
 // ── Inicialización del motor Gemma on-device ─────────────────────────
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
@@ -67,7 +69,8 @@ Future<void> _afterAuthSuccess(
 }
 
 /// Primera pantalla que se muestra al abrir la app.
-/// Revisa si hay una sesión guardada:
+/// Revisa primero el disclaimer legal (una sola vez por dispositivo) y
+/// luego si hay una sesión guardada:
 ///   - Si hay tokens guardados y el perfil carga bien → entra directo a
 ///     Home (sin pedir login otra vez).
 ///   - Si no hay sesión, o los tokens ya expiraron → manda a /login.
@@ -94,6 +97,16 @@ class _SplashGateState extends State<_SplashGate> {
   }
 
   Future<void> _checkSession() async {
+    // Primero, el disclaimer legal — se pregunta UNA sola vez por
+    // dispositivo, antes que cualquier otra cosa (incluso antes de
+    // saber si hay sesión guardada).
+    final accepted = await DisclaimerService.hasAccepted();
+    if (!accepted) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/disclaimer');
+      return;
+    }
+
     final session = await SessionStorage.load();
 
     if (session == null) {
@@ -194,6 +207,12 @@ class TintaApp extends StatelessWidget {
                 initialRoute: '/splash',
                 routes: {
                   '/splash': (_) => const _SplashGate(),
+                  '/disclaimer': (_) => Builder(
+                    builder: (ctx) => DisclaimerView(
+                      onAccepted: () =>
+                          Navigator.pushReplacementNamed(ctx, '/splash'),
+                    ),
+                  ),
                   '/login': (_) => ChangeNotifierProvider<AuthViewModel>(
                     create: (_) => sl<AuthViewModel>(),
                     child: Builder(
