@@ -14,6 +14,7 @@ import '../../../notifications/presentation/views/notifications_view.dart';
 import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../components/currently_reading_book.dart';
 import '../components/currently_reading_section.dart';
+import '../../../../features/clubs/presentation/views/clubs_list_view.dart';
 import '../../../../main.dart' show appRouteObserver;
 import '../../../../core/presentation/utils/page_transitions.dart';
 

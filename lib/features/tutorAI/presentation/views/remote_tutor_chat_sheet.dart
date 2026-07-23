@@ -9,13 +9,6 @@ import '../../domain/entities/tutor_source.dart';
 import '../components/sources_footer.dart';
 import '../viewmodels/remote_tutor_chat_viewmodel.dart';
 
-/// Chat con Tinta AI en modo REMOTO (backend con RAG).
-///
-/// A diferencia del `TutorChatSheet` original que usa el LLM local, este
-/// sheet siempre habla con el microservicio tutor-ai. Requiere internet.
-///
-/// Solo se abre cuando el PDF ya está indexado (status = ready) en el
-/// backend. La lógica de indexación y polling vive en `pdf_results_view`.
 class RemoteTutorChatSheet extends StatelessWidget {
   final String documentContext;
   final String remoteDocumentId;
@@ -26,7 +19,6 @@ class RemoteTutorChatSheet extends StatelessWidget {
     required this.remoteDocumentId,
   });
 
-  /// Helper para abrir el sheet centralizando la config de tamaños.
   static Future<void> show(
     BuildContext context, {
     required String documentContext,
@@ -89,9 +81,7 @@ class _RemoteChatContent extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════
 // HEADER
-// ══════════════════════════════════════════════════════════════════════
 
 class _Header extends StatelessWidget {
   final String documentContext;
@@ -173,9 +163,7 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════
 // BODY
-// ══════════════════════════════════════════════════════════════════════
 
 class _Body extends StatelessWidget {
   final RemoteTutorChatViewModel vm;
@@ -270,9 +258,7 @@ class _SuggestionChip extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════
 // LISTA DE MENSAJES
-// ══════════════════════════════════════════════════════════════════════
 
 class _MessagesList extends StatefulWidget {
   final RemoteTutorChatViewModel vm;
@@ -343,9 +329,7 @@ class _MessagesListState extends State<_MessagesList> {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════
 // BURBUJA DE MENSAJE
-// ══════════════════════════════════════════════════════════════════════
 
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
@@ -410,9 +394,7 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════
 // INPUT BAR
-// ══════════════════════════════════════════════════════════════════════
 
 class _InputBar extends StatefulWidget {
   final bool enabled;

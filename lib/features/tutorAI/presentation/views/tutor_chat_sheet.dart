@@ -10,21 +10,12 @@ import '../components/model_download_progress.dart';
 import '../components/tutor_header.dart';
 import '../viewmodels/tutor_chat_viewmodel.dart';
 
-/// Chat con Tinta AI que se monta como bottom sheet desde `PdfResultsView`
-/// (o desde cualquier otra vista que pase un `documentContext`).
-///
-/// Estructura:
-///   - Header con avatar + estado.
-///   - Cuerpo: pantalla de descarga si el modelo no está listo, o
-///     lista de mensajes si lo está.
-///   - Input al fondo.
+
 class TutorChatSheet extends StatelessWidget {
   final String? documentContext;
 
   const TutorChatSheet({super.key, this.documentContext});
 
-  /// Helper para abrir el sheet desde cualquier vista. Centraliza la
-  /// configuración (drag handle, tamaños min/max, etc.).
   static Future<void> show(
     BuildContext context, {
     String? documentContext,

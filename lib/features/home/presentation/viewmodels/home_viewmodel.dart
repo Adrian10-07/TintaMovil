@@ -151,8 +151,7 @@ class HomeViewModel extends ChangeNotifier {
     await loadInitialCatalog('');
   }
 
-  /// El parámetro query se mantiene por compatibilidad con la firma anterior,
-  /// pero no se usa: el catálogo curado se filtra solo por categoría.
+
   Future<void> loadInitialCatalog(String query) async {
     _state = HomeState.loadingInitial;
     _errorMessage = null;
