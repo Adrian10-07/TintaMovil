@@ -33,6 +33,7 @@ import '../../features/tutorAI/data/repositories/tutor_repository_impl.dart';
 import '../../features/tutorAI/domain/repositories/tutor_repository.dart';
 import '../../features/tutorAI/presentation/viewmodels/tutor_chat_viewmodel.dart';
 import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
+import '../../features/tutorAI/data/services/in_memory_rag_service.dart';
 
 // Tutor AI — remoto (RAG en Railway)
 import '/core/network/sse_client.dart';
@@ -198,8 +199,6 @@ void registerKnowledgeBase() {
 
 void registerTutorAi() {
   // Datasource activo del tutor local: Gemma 3 1B vía flutter_gemma.
-  // MockTutorDatasource se usa solo si _useMockLlmForEmulator = true
-  // (por ejemplo en emulador x86_64, donde flutter_gemma no corre).
   sl.registerLazySingleton<TutorLlmDatasource>(
         () => _useMockLlmForEmulator
         ? MockTutorDatasource()
@@ -214,10 +213,14 @@ void registerTutorAi() {
     ),
   );
 
+  sl.registerLazySingleton<InMemoryRagService>(
+        () => InMemoryRagService(),
+  );
+
   sl.registerLazySingleton<TutorChatViewModel>(
         () => TutorChatViewModel(
       sl<TutorRepository>(),
-      sl<KnowledgeRepository>(),
+      sl<InMemoryRagService>(),
     ),
   );
 

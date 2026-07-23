@@ -220,6 +220,7 @@ class _PdfResultsViewState extends State<PdfResultsView> {
     TutorChatSheet.show(
       context,
       documentContext: _fileName,
+      pdfFilePath: widget.pdfFile.path, // ← NUEVO
     );
   }
 

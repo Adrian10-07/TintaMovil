@@ -2,28 +2,43 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../../knowledge_base/domain/repositories/knowledge_repository.dart';
+import '../../data/services/in_memory_rag_service.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/model_download_status.dart';
 import '../../domain/repositories/tutor_repository.dart';
 
-/// ViewModel del chat con el tutor IA.
+/// Mensaje que se muestra cuando la pregunta no tiene relación con el
+/// documento (ningún chunk supera el umbral de similitud). Igual que
+/// OUT_OF_SCOPE_MESSAGE en el backend remoto, evita que el LLM local
+/// alucine una respuesta ajena al PDF.
+const _kOutOfScopeMessage =
+    'Esa pregunta no parece estar relacionada con el documento que estás '
+    'leyendo. Intenta preguntarme algo sobre su contenido, o si quieres '
+    'ayuda con otro tema, dímelo explícitamente.';
+
+/// Umbral de similitud coseno para TF-IDF. Es más bajo que el usado con
+/// embeddings densos (MiniLM ~0.38) porque los vectores TF-IDF son
+/// sparse y basados en solapamiento literal de vocabulario — valores
+/// "altos" en este esquema rondan 0.15-0.3 incluso para textos muy
+/// relacionados. Es un punto de partida empírico, no un valor exacto;
+/// ajustar si se ve que rechaza preguntas válidas o deja pasar ajenas.
+const double _kMinSimilarity = 0.08;
+
+/// ViewModel del chat con el tutor IA local (Gemma on-device).
 ///
-/// Mantiene:
-///   - El historial de mensajes en memoria.
-///   - El estado de la descarga/carga del modelo.
-///   - El estado de "generando respuesta" para mostrar typing indicator.
-///   - El estado de indexación del documento (RAG).
-///
-/// Convive con el patrón usado en `home_viewmodel.dart` y demás:
-/// extiende [ChangeNotifier], expone getters de solo lectura, y mutaciones
-/// vía métodos públicos que terminan con `notifyListeners()`.
+/// Mantiene el historial de mensajes, el estado de descarga del modelo,
+/// y — cuando hay un documento asociado — un índice RAG en memoria
+/// (TF-IDF, sin persistencia en disco) para evitar que el modelo
+/// responda con conocimiento general cuando la pregunta no tiene
+/// relación con el PDF que el usuario está leyendo.
 class TutorChatViewModel extends ChangeNotifier {
   final TutorRepository _repository;
-  final KnowledgeRepository _knowledgeRepo;
-  String? documentContext;
+  final InMemoryRagService _ragService;
 
-  TutorChatViewModel(this._repository, this._knowledgeRepo, {this.documentContext}) {
+  String? documentContext;
+  String? _documentFilePath;
+
+  TutorChatViewModel(this._repository, this._ragService) {
     _listenToModelStatus();
   }
 
@@ -40,7 +55,7 @@ class TutorChatViewModel extends ChangeNotifier {
   List<ChatMessage> get messages => List.unmodifiable(_messages);
 
   ModelDownloadStatus _modelStatus =
-      const ModelDownloadStatus(stage: ModelDownloadStage.idle);
+  const ModelDownloadStatus(stage: ModelDownloadStage.idle);
   ModelDownloadStatus get modelStatus => _modelStatus;
 
   bool _isGenerating = false;
@@ -51,12 +66,9 @@ class TutorChatViewModel extends ChangeNotifier {
 
   bool get canSend => _modelStatus.isReady && !_isGenerating;
 
-  // ── Estado de indexación (RAG) ─────────────────────────────────────
+  // ── Estado de indexación (RAG local en memoria) ────────────────────
   bool _isIndexing = false;
   bool get isIndexing => _isIndexing;
-
-  double _indexProgress = 0.0;
-  double get indexProgress => _indexProgress;
 
   bool _isDocumentIndexed = false;
   bool get isDocumentIndexed => _isDocumentIndexed;
@@ -75,8 +87,6 @@ class TutorChatViewModel extends ChangeNotifier {
     });
   }
 
-  /// Inicia la descarga/carga del modelo si aún no está listo.
-  /// Se llama desde la pantalla al abrir el chat por primera vez.
   Future<void> initializeModel() async {
     try {
       _error = null;
@@ -87,31 +97,26 @@ class TutorChatViewModel extends ChangeNotifier {
     }
   }
 
-  /// Indexa el documento PDF actual para habilitar RAG.
-  ///
-  /// Extrae texto, divide en chunks, calcula TF-IDF y guarda en SQLite.
-  /// Emite progreso para que la UI muestre una barra de carga.
+  /// Indexa el PDF actual en memoria (extracción + chunking + TF-IDF),
+  /// sin tocar SQLite. Seguro de llamar varias veces: si el documento ya
+  /// fue indexado en esta sesión, no repite el trabajo.
   Future<void> indexCurrentDocument(String filePath) async {
     if (_isIndexing) return;
 
     _isIndexing = true;
-    _indexProgress = 0.0;
     notifyListeners();
 
     try {
-      final hash = await _knowledgeRepo.getDocumentHash(filePath);
+      _documentFilePath = filePath;
+      final hash = await InMemoryRagService.computeFileHash(filePath);
       _activeDocumentHash = hash;
 
-      await _knowledgeRepo.indexDocument(
-        filePath,
-        fileName: documentContext,
-        onProgress: (progress) {
-          _indexProgress = progress;
-          notifyListeners();
-        },
+      final chunks = await _ragService.ensureIndexed(
+        filePath: filePath,
+        documentHash: hash,
       );
 
-      _isDocumentIndexed = true;
+      _isDocumentIndexed = chunks.isNotEmpty;
     } catch (e) {
       _error = 'Error al indexar documento: $e';
       _isDocumentIndexed = false;
@@ -121,12 +126,10 @@ class TutorChatViewModel extends ChangeNotifier {
     }
   }
 
-  /// Envía un mensaje del usuario y dispara la generación de respuesta.
   Future<void> sendMessage(String text) async {
     final clean = text.trim();
     if (clean.isEmpty || !canSend) return;
 
-    // 1. Agregar mensaje del usuario.
     final userMsg = ChatMessage(
       id: 'user-${DateTime.now().millisecondsSinceEpoch}',
       role: ChatRole.user,
@@ -135,7 +138,6 @@ class TutorChatViewModel extends ChangeNotifier {
     );
     _messages.add(userMsg);
 
-    // 2. Placeholder del assistant.
     final assistantMsg = ChatMessage(
       id: 'assistant-${DateTime.now().millisecondsSinceEpoch}',
       role: ChatRole.assistant,
@@ -149,25 +151,48 @@ class TutorChatViewModel extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    // 2.5. RAG: buscar fragmentos relevantes si hay un documento indexado.
+    // ── RAG local: buscar chunks relevantes si hay documento indexado ──
     List<String>? relevantChunks;
+    bool outOfScope = false;
+
     if (_isDocumentIndexed && _activeDocumentHash != null) {
       try {
-        final chunks = await _knowledgeRepo.search(
-          clean,
+        final isBroad = InMemoryRagService.isBroadQuestion(clean);
+        final chunks = _ragService.search(
+          query: clean,
           documentHash: _activeDocumentHash!,
-          topK: 3,
+          topK: isBroad ? 6 : 3,
+          // Preguntas amplias (resumen, tema central) no se parecen a
+          // ningún chunk puntual — se ignora el umbral para ellas.
+          minSimilarity: isBroad ? 0.0 : _kMinSimilarity,
         );
+
         if (chunks.isNotEmpty) {
           relevantChunks = chunks.map((c) => c.content).toList();
+        } else if (!isBroad) {
+          // Documento indexado, pregunta puntual, CERO chunks relevantes
+          // → la pregunta no tiene relación con el documento.
+          outOfScope = true;
         }
       } catch (_) {
-        // Si la búsqueda falla, seguimos sin RAG (fallback graceful).
+        // Si el RAG local falla, seguimos sin contexto (fallback graceful)
+        // en vez de romper la conversación completa.
       }
     }
 
-    // 3. Batching: acumular tokens y notificar cada 60ms (~16 fps de updates,
-    // suficiente para que se vea fluido sin saturar el árbol de widgets).
+    // ── Corte temprano: pregunta fuera de alcance del documento ────────
+    if (outOfScope) {
+      final idx = _messages.length - 1;
+      _messages[idx] = _messages[idx].copyWith(
+        content: _kOutOfScopeMessage,
+        isStreaming: false,
+      );
+      _isGenerating = false;
+      notifyListeners();
+      return;
+    }
+
+    // ── Batching de tokens cada 60ms ────────────────────────────────
     final buffer = StringBuffer();
     Timer? batchTimer;
     bool hasNewTokens = false;
@@ -180,12 +205,10 @@ class TutorChatViewModel extends ChangeNotifier {
       hasNewTokens = false;
     }
 
-    // Timer que vacía el buffer cada 60ms si hay nuevos tokens.
     batchTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
       flushBuffer();
     });
 
-    // Truncar historial a los últimos 6 mensajes para no desbordar el contexto.
     final recentHistory = _messages
         .where((m) => !m.isStreaming)
         .toList()
@@ -205,11 +228,10 @@ class TutorChatViewModel extends ChangeNotifier {
           (token) {
         buffer.write(token);
         hasNewTokens = true;
-        // NO llamamos notifyListeners() aquí: el timer lo hace.
       },
       onDone: () {
         batchTimer?.cancel();
-        flushBuffer(); // último flush por si quedaron tokens.
+        flushBuffer();
 
         final idx = _messages.length - 1;
         _messages[idx] = _messages[idx].copyWith(
@@ -233,14 +255,12 @@ class TutorChatViewModel extends ChangeNotifier {
     );
   }
 
-  /// Reintenta la descarga después de un fallo.
   Future<void> retryDownload() async {
     _error = null;
     notifyListeners();
     await initializeModel();
   }
 
-  /// Limpia el historial del chat (no afecta al modelo).
   void clearChat() {
     _messages.clear();
     notifyListeners();

@@ -12,14 +12,18 @@ import '../viewmodels/tutor_chat_viewmodel.dart';
 
 class TutorChatSheet extends StatelessWidget {
   final String? documentContext;
+  final String? pdfFilePath; // ← NUEVO
 
-  const TutorChatSheet({super.key, this.documentContext});
+  const TutorChatSheet({
+    super.key,
+    this.documentContext,
+    this.pdfFilePath, // ← NUEVO
+  });
 
-  /// Helper para abrir el sheet desde cualquier vista. Centraliza la
-  /// configuración (drag handle, tamaños min/max, etc.).
   static Future<void> show(
       BuildContext context, {
         String? documentContext,
+        String? pdfFilePath, // ← NUEVO
       }) {
     return showModalBottomSheet(
       context: context,
@@ -32,7 +36,7 @@ class TutorChatSheet extends StatelessWidget {
       ),
       builder: (sheetContext) {
         return Padding(
-          // Empuja todo el sheet hacia arriba cuando el teclado aparece.
+          // Keyboard-avoiding, ya aplicado antes.
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
           ),
@@ -42,7 +46,10 @@ class TutorChatSheet extends StatelessWidget {
             maxChildSize: 0.95,
             expand: false,
             builder: (_, scrollController) {
-              return TutorChatSheet(documentContext: documentContext);
+              return TutorChatSheet(
+                documentContext: documentContext,
+                pdfFilePath: pdfFilePath, // ← NUEVO
+              );
             },
           ),
         );
@@ -50,13 +57,19 @@ class TutorChatSheet extends StatelessWidget {
     );
   }
 
+  // ── 2. build(): indexar el documento si se pasó una ruta ──────────
+
   @override
   Widget build(BuildContext context) {
     final vm = sl<TutorChatViewModel>();
-    
-    // Evitar llamar notifyListeners() durante la fase de build
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       vm.setContext(documentContext);
+      // NUEVO: si hay un PDF asociado, indexarlo en memoria (TF-IDF).
+      // Si ya fue indexado antes en esta sesión, no repite el trabajo.
+      if (pdfFilePath != null) {
+        vm.indexCurrentDocument(pdfFilePath!);
+      }
       vm.initializeModel();
     });
 
@@ -66,6 +79,10 @@ class TutorChatSheet extends StatelessWidget {
     );
   }
 }
+
+// El resto del archivo (_TutorChatSheetContent, _MessagesList, _EmptyState,
+// etc.) NO cambia — se queda exactamente igual a como ya lo tienes.
+
 
 class _TutorChatSheetContent extends StatelessWidget {
   final String? documentContext;
