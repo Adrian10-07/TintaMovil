@@ -61,8 +61,6 @@ class _MainTabShellState extends State<MainTabShell> {
   Widget build(BuildContext context) {
     final userId = context.watch<UserViewModel>().profile?.id ?? '';
 
-    // Dispara la carga del estado del CAPTCHA la primera vez que ya
-    // tenemos un userId real (evita pedirlo de más o de menos).
     if (userId.isNotEmpty && _captchaCheckedForUserId != userId) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _loadCaptchaStatus(userId));
     }
