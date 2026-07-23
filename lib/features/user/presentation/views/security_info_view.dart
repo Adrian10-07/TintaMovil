@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Pantalla "Seguridad" — explica en lenguaje llano las medidas de
-/// seguridad reales que tiene la app (no es solo texto de relleno, cada
-/// punto corresponde a algo implementado de verdad en el código).
 class SecurityInfoView extends StatelessWidget {
   const SecurityInfoView({Key? key}) : super(key: key);
 
@@ -13,7 +10,7 @@ class SecurityInfoView extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Seguridad')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
         children: [
           Container(
             padding: const EdgeInsets.all(16),

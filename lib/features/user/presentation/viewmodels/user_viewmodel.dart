@@ -4,10 +4,6 @@ import '../../domain/repositories/user_repository.dart';
 
 enum UserState { initial, loading, ready, updating, error }
 
-/// ViewModel para el perfil de usuario.
-///
-/// Consume el mismo servicio Identity que auth.
-/// Las vistas usan Consumer<UserViewModel> para reactivo.
 class UserViewModel extends ChangeNotifier {
   final UserRepository _userRepository;
 
@@ -25,7 +21,6 @@ class UserViewModel extends ChangeNotifier {
   bool get isReady => _state == UserState.ready;
   bool get isLoading => _state == UserState.loading || _state == UserState.updating;
 
-  /// GET /users/me — Carga el perfil autenticado.
   Future<void> loadProfile() async {
     if (_state == UserState.loading) return;
     _setState(UserState.loading);
@@ -38,7 +33,6 @@ class UserViewModel extends ChangeNotifier {
     }
   }
 
-  /// PATCH /users/me — Actualiza nombre, avatar o idioma.
   Future<bool> updateProfile({
     String? name,
     String? avatarUrl,
@@ -60,7 +54,6 @@ class UserViewModel extends ChangeNotifier {
     }
   }
 
-  /// DELETE /users/me — Elimina la cuenta.
   Future<bool> deleteAccount() async {
     _setState(UserState.updating);
     try {
@@ -72,6 +65,42 @@ class UserViewModel extends ChangeNotifier {
       _errorMessage = e.toString();
       _setState(UserState.error);
       return false;
+    }
+  }
+
+  bool _isRequestingCode = false;
+  bool get isRequestingCode => _isRequestingCode;
+
+  Future<String?> requestVerificationCode() async {
+    _isRequestingCode = true;
+    notifyListeners();
+    try {
+      return await _userRepository.requestVerificationCode();
+    } catch (e) {
+      _errorMessage = e.toString();
+      return null;
+    } finally {
+      _isRequestingCode = false;
+      notifyListeners();
+    }
+  }
+
+  bool _isVerifyingCode = false;
+  bool get isVerifyingCode => _isVerifyingCode;
+
+  Future<bool> verifyEmailCode(String code) async {
+    _isVerifyingCode = true;
+    notifyListeners();
+    try {
+      await _userRepository.verifyEmailCode(code);
+      await loadProfile();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    } finally {
+      _isVerifyingCode = false;
+      notifyListeners();
     }
   }
 

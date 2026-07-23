@@ -78,4 +78,37 @@ class AuthRemoteDataSource {
       body: {'refresh_token': refreshToken},
     );
   }
+
+  /// POST /auth/password-reset/request — Pide un código de 6 dígitos
+  /// para restablecer la contraseña.
+  ///
+  /// El backend siempre responde 200 (para no dar pistas de si el
+  /// correo existe o no), pero incluye `code` en la respuesta solo si
+  /// el correo sí es de una cuenta real — igual que el flujo de
+  /// verificación de correo, esto es un respaldo mientras se confirma
+  /// que el correo real (vía Brevo) llega bien.
+  Future<String?> requestPasswordReset(String email) async {
+    final data = await _apiClient.post(
+      '$_baseUrl/auth/password-reset/request',
+      body: {'email': email},
+    );
+    return (data as Map<String, dynamic>)['code'] as String?;
+  }
+
+  /// POST /auth/password-reset/confirm — Confirma el código y establece
+  /// la nueva contraseña.
+  Future<void> confirmPasswordReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await _apiClient.post(
+      '$_baseUrl/auth/password-reset/confirm',
+      body: {
+        'email': email,
+        'code': code,
+        'new_password': newPassword,
+      },
+    );
+  }
 }

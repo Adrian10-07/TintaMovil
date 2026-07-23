@@ -2,42 +2,34 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/utils/friendly_error.dart';
 import '../../data/datasources/remote_tutor_datasource.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/tutor_source.dart';
 
 /// ViewModel del chat en MODO REMOTO.
 ///
-/// A diferencia del `TutorChatViewModel` original (que usa el LLM local +
-/// TF-IDF), este ViewModel llama directamente al microservicio tutor-ai en
-/// Railway. El backend hace su propio RAG con embeddings y responde por SSE.
-///
-/// Este ViewModel se usa cuando el usuario abre el chat DESDE un PDF y el
-/// backend ya tiene ese PDF indexado (status = ready). En cualquier otro
-/// caso se cae al ViewModel local.
+/// `remoteDocumentId` ahora es OPCIONAL: si es null, el chat funciona en
+/// modo "conversación general" contra el backend (sin RAG de un
+/// documento específico) — usado por ejemplo desde ReaderView, donde
+/// los libros son EPUB y el backend solo indexa PDF por ahora.
 class RemoteTutorChatViewModel extends ChangeNotifier {
   final RemoteTutorDatasource _datasource;
 
-  /// Nombre del PDF actual (mostrar en la UI).
   final String? documentContext;
 
-  /// ID del documento indexado en el backend. Requerido para RAG.
-  final String remoteDocumentId;
+  /// Null = chat general sin RAG de documento (ej. desde ReaderView).
+  final String? remoteDocumentId;
 
   RemoteTutorChatViewModel(
-    this._datasource, {
-    required this.remoteDocumentId,
-    this.documentContext,
-  });
-
-  // ══════════════════════════════════════════════════════════════════
-  // ESTADO EXPUESTO A LA UI
-  // ══════════════════════════════════════════════════════════════════
+      this._datasource, {
+        this.remoteDocumentId,
+        this.documentContext,
+      });
 
   final List<ChatMessage> _messages = [];
   List<ChatMessage> get messages => List.unmodifiable(_messages);
 
-  /// Mapa messageId → sources citadas.
   final Map<String, List<TutorSource>> _sourcesByMessageId = {};
   List<TutorSource> sourcesFor(String messageId) =>
       _sourcesByMessageId[messageId] ?? const [];
@@ -48,19 +40,20 @@ class RemoteTutorChatViewModel extends ChangeNotifier {
   String? _error;
   String? get error => _error;
 
+  /// True si el último error parece ser de conectividad (sin internet,
+  /// timeout). La UI usa esto para ofrecer el botón "Cambiar a modo sin
+  /// conexión" en vez de un botón genérico de reintentar.
+  bool _isConnectivityIssue = false;
+  bool get isConnectivityIssue => _isConnectivityIssue;
+
   bool get canSend => !_isGenerating;
 
   StreamSubscription<RemoteChatEvent>? _generationSub;
-
-  // ══════════════════════════════════════════════════════════════════
-  // ENVIAR MENSAJE
-  // ══════════════════════════════════════════════════════════════════
 
   Future<void> sendMessage(String text) async {
     final clean = text.trim();
     if (clean.isEmpty || !canSend) return;
 
-    // 1. Mensaje del usuario
     final userMsg = ChatMessage(
       id: 'user-${DateTime.now().millisecondsSinceEpoch}',
       role: ChatRole.user,
@@ -69,7 +62,6 @@ class RemoteTutorChatViewModel extends ChangeNotifier {
     );
     _messages.add(userMsg);
 
-    // 2. Placeholder del asistente
     final assistantMsgId =
         'assistant-${DateTime.now().millisecondsSinceEpoch}';
     final assistantMsg = ChatMessage(
@@ -83,9 +75,9 @@ class RemoteTutorChatViewModel extends ChangeNotifier {
 
     _isGenerating = true;
     _error = null;
+    _isConnectivityIssue = false;
     notifyListeners();
 
-    // 3. Batching de tokens cada 60ms para no saturar el UI thread
     final buffer = StringBuffer();
     Timer? batchTimer;
     bool hasNewTokens = false;
@@ -102,7 +94,6 @@ class RemoteTutorChatViewModel extends ChangeNotifier {
       flushBuffer();
     });
 
-    // 4. Truncar historial a los últimos 6 mensajes para no exceder el contexto
     final recentHistory = _messages
         .where((m) => !m.isStreaming)
         .toList()
@@ -112,7 +103,6 @@ class RemoteTutorChatViewModel extends ChangeNotifier {
         .reversed
         .toList();
 
-    // 5. Suscribirse al stream remoto
     _generationSub = _datasource
         .chat(
       question: clean,
@@ -120,7 +110,7 @@ class RemoteTutorChatViewModel extends ChangeNotifier {
       history: recentHistory,
     )
         .listen(
-      (event) {
+          (event) {
         switch (event) {
           case RemoteTokenEvent(:final token):
             buffer.write(token);
@@ -146,13 +136,14 @@ class RemoteTutorChatViewModel extends ChangeNotifier {
       },
       onError: (err) {
         batchTimer?.cancel();
-        _handleError('$err');
+        _handleError(err);
       },
     );
   }
 
-  void _handleError(String message) {
-    _error = message;
+  void _handleError(Object rawError) {
+    _error = friendlyErrorMessage(rawError);
+    _isConnectivityIssue = isConnectivityError(rawError);
     _isGenerating = false;
     if (_messages.isNotEmpty &&
         _messages.last.isAssistant &&

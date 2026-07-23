@@ -11,6 +11,8 @@ import '../../../features/user/presentation/views/user_view.dart';
 import '../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../../../features/clubs/presentation/views/clubs_list_view.dart';
 import '../../../features/clubs/data/services/club_notification_service.dart';
+import '../../../features/clubs/data/services/captcha_gate_service.dart';
+import '../../../features/clubs/presentation/views/club_captcha_view.dart';
 
 /// Shell raíz de la app tras el login.
 ///
@@ -23,6 +25,11 @@ import '../../../features/clubs/data/services/club_notification_service.dart';
 /// La barra SÍ desaparece cuando se abre una pantalla de detalle real
 /// (lector de EPUB, visor de PDF, detalle de libro) porque esas se abren
 /// con Navigator.push por ENCIMA de este shell, cubriéndolo entero.
+///
+/// La pestaña de Clubes exige pasar un captcha una sola vez por usuario
+/// (anti-spam) antes de mostrar el contenido real; una vez pasado, se
+/// conserva el indicador de notificaciones sin leer en el ícono de la
+/// barra inferior.
 class MainTabShell extends StatefulWidget {
   const MainTabShell({Key? key}) : super(key: key);
 
@@ -34,6 +41,10 @@ class _MainTabShellState extends State<MainTabShell> {
   int _index = 0;
   late final HomeViewModel _homeViewModel;
   late final ClubNotificationService _notifService;
+
+  // Se carga una sola vez por sesión de la app; null = todavía cargando.
+  bool? _captchaPassed;
+  String? _captchaCheckedForUserId;
 
   @override
   void initState() {
@@ -65,15 +76,39 @@ class _MainTabShellState extends State<MainTabShell> {
     setState(() => _index = index);
   }
 
+  Future<void> _loadCaptchaStatus(String userId) async {
+    _captchaCheckedForUserId = userId;
+    final passed = await CaptchaGateService.hasPassed(userId);
+    if (mounted && _captchaCheckedForUserId == userId) {
+      setState(() => _captchaPassed = passed);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = context.watch<UserViewModel>().profile?.id ?? '';
+
+    if (userId.isNotEmpty && _captchaCheckedForUserId != userId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadCaptchaStatus(userId));
+    }
+
+    Widget clubTab;
+    if (userId.isEmpty || _captchaPassed == null) {
+      clubTab = const Center(child: CircularProgressIndicator());
+    } else if (_captchaPassed == true) {
+      clubTab = const ClubsListView(embedded: true);
+    } else {
+      clubTab = ClubCaptchaView(
+        userId: userId,
+        onPassed: () => setState(() => _captchaPassed = true),
+      );
+    }
 
     final tabs = <Widget>[
       HomeView(viewModel: _homeViewModel, defaultQuery: '', embedded: true),
       const RecommendationsView(embedded: true),
       UploadBookView(userId: userId, embedded: true),
-      const ClubsListView(embedded: true),
+      clubTab,
       const UserView(),
     ];
 

@@ -17,6 +17,9 @@ import 'security_info_view.dart';
 import '../../../achievements/presentation/views/achievements_view.dart';
 import '../../../achievements/data/services/achievement_service.dart';
 import '../../../../core/localization/app_strings.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
+import '../../../auth/presentation/views/forgot_password_view.dart';
+import '../../../clubs/data/services/captcha_gate_service.dart';
 
 /// Pantalla de perfil del usuario (Tab "Yo").
 ///
@@ -216,15 +219,26 @@ class _UserViewState extends State<UserView> {
             const SizedBox(height: 14),
             _InfoCard(
               children: [
-                _InfoRow(
-                  label: t.emailVerified,
-                  value: profile.emailVerified ? t.yes : t.no,
-                  icon: profile.emailVerified
-                      ? Icons.verified_rounded
-                      : Icons.warning_amber_rounded,
-                  iconColor: profile.emailVerified
-                      ? colorScheme.primary
-                      : MaterialTheme.warmGold,
+                ValueListenableBuilder<int>(
+                  valueListenable: CaptchaGateService.changes,
+                  builder: (context, _, __) {
+                    return FutureBuilder<bool>(
+                      future: CaptchaGateService.hasPassed(profile.id),
+                      builder: (context, snapshot) {
+                        final passed = snapshot.data ?? false;
+                        return _InfoRow(
+                          label: 'Antirobot',
+                          value: passed ? 'Verificado' : 'Desconocido',
+                          icon: passed
+                              ? Icons.verified_rounded
+                              : Icons.warning_amber_rounded,
+                          iconColor: passed
+                              ? colorScheme.primary
+                              : MaterialTheme.warmGold,
+                        );
+                      },
+                    );
+                  },
                 ),
                 Divider(
                   color: colorScheme.outlineVariant.withOpacity(0.4),
@@ -300,6 +314,21 @@ class _UserViewState extends State<UserView> {
                 ),
               ),
               ProfileMenuItem(
+                icon: Icons.lock_reset_rounded,
+                label: 'Restablecer contraseña',
+                subtitle: 'Te mandamos un código a tu correo',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ForgotPasswordView(
+                      authRepository: sl<AuthRepository>(),
+                      userId: profile.id,
+                      initialEmail: profile.email,
+                    ),
+                  ),
+                ),
+              ),
+              ProfileMenuItem(
                 icon: Icons.help_outline_rounded,
                 label: t.helpSupport,
                 onTap: () => Navigator.push(
@@ -314,7 +343,7 @@ class _UserViewState extends State<UserView> {
                 label: t.logout,
                 iconColor: colorScheme.error,
                 showChevron: false,
-                onTap: () => _showLogoutDialog(context),
+                onTap: () => _showLogoutDialog(context, t),
               ),
             ]),
             const SizedBox(height: 40),
@@ -324,8 +353,7 @@ class _UserViewState extends State<UserView> {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
-    final t = AppStrings.of(context);
+  void _showLogoutDialog(BuildContext context, AppStrings t) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -337,16 +365,7 @@ class _UserViewState extends State<UserView> {
             child: Text(t.cancel),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              final authVM = sl<AuthViewModel>();
-              authVM.logout().then((_) {
-                if (context.mounted) {
-                  context.read<UserViewModel>().clearProfile();
-                  Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                }
-              });
-            },
+            onPressed: () => _performLogout(context, ctx),
             child: Text(
               t.logout,
               style: TextStyle(
@@ -357,6 +376,24 @@ class _UserViewState extends State<UserView> {
         ],
       ),
     );
+  }
+
+  /// Cierra sesión LOCAL-PRIMERO: limpia tokens/perfil y navega a Login
+  /// de inmediato, sin esperar respuesta del servidor. La llamada al
+  /// backend para revocar el refresh token se manda en segundo plano —
+  /// si falla (sin internet, servidor caído, etc.) no bloquea ni
+  /// retrasa nada, porque el usuario ya salió de su sesión localmente.
+  void _performLogout(BuildContext context, BuildContext dialogContext) {
+    Navigator.pop(dialogContext); // cierra el diálogo de confirmación
+
+    final authVM = sl<AuthViewModel>();
+
+    // 1. Local, instantáneo — esto SIEMPRE funciona, no depende de red.
+    context.read<UserViewModel>().clearProfile();
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+
+    // 2. Revocar el refresh token en el backend, en segundo plano.
+    authVM.logout().catchError((_) {});
   }
 
   String _formatDate(DateTime date) {

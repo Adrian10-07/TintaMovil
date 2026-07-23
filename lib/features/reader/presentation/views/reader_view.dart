@@ -15,7 +15,8 @@ import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
 import '../../../recommendations/presentation/views/recommendations_view.dart';
 import '../../../home/data/services/streak_service.dart';
 import '../../../achievements/data/services/achievement_service.dart';
-
+import 'package:tinta/core/network/connectivity_checker.dart';
+import '../../../tutorAI/presentation/views/remote_tutor_chat_sheet.dart';
 class ReaderView extends StatefulWidget {
   const ReaderView({Key? key}) : super(key: key);
 
@@ -25,6 +26,7 @@ class ReaderView extends StatefulWidget {
 
 class _ReaderViewState extends State<ReaderView> {
   final EpubDownloadService _downloadService = EpubDownloadService();
+  final _connectivityChecker = ConnectivityChecker();
 
   EpubController? _epubController;
   bool _isLoading = true;
@@ -37,6 +39,47 @@ class _ReaderViewState extends State<ReaderView> {
   int _currentChapterIndex = 0;
   List<dynamic> _chapters = const [];
   bool _streakRegisteredThisSession = false;
+
+  void _showLoadingSnackbar(String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+  );
+}
+
+void _openLocalEpubChat(Book book) {
+  // Los capítulos ya están en memoria (_chapters, cargados en _loadEpub).
+  // Se extrae el HTML de cada uno para indexarlo con TF-IDF en memoria.
+  final htmlContents = <String>[];
+  for (final chapter in _chapters) {
+    try {
+      final html = chapter.HtmlContent as String?;
+      if (html != null && html.isNotEmpty) htmlContents.add(html);
+    } catch (_) {
+      // Si el campo no existe en esta versión de epub_view, se omite
+      // ese capítulo en vez de tronar todo el chat.
+    }
+  }
+
+  TutorChatSheet.show(
+    context,
+    documentContext: book.title,
+    epubChapterHtmlContents: htmlContents,
+  );
+}
+
+void _openRemoteGeneralChat(Book book) {
+  // Sin document_id: chat general contra el backend (sin RAG real del
+  // EPUB, ya que el backend solo indexa PDF). Si falla por conexión,
+  // el botón de la propia sheet permite cambiar a modo local.
+  RemoteTutorChatSheet.show(
+    context,
+    documentContext: book.title,
+    onSwitchToOffline: () {
+      Navigator.of(context).pop(); // cierra el sheet remoto
+      _openLocalEpubChat(book);
+    },
+  );
+}
 
   @override
   void didChangeDependencies() {
@@ -209,8 +252,23 @@ class _ReaderViewState extends State<ReaderView> {
     TranslatedChapterSheet.show(context, chapterTitle: title, chapterHtml: html);
   }
 
-  void _onTutorChatTap(Book book) {
-    TutorChatSheet.show(context, documentContext: book.title);
+  void _onTutorChatTap(Book book)  {
+    final htmlContents = <String>[];
+    for (final chapter in _chapters) {
+      try {
+        final html = chapter.HtmlContent as String?;
+        if (html != null && html.isNotEmpty) htmlContents.add(html);
+      } catch (_) {
+        // Si el campo no existe en esta versión de epub_view, se omite
+        // ese capítulo en vez de tronar todo el chat.
+      }
+    }
+
+    TutorChatSheet.show(
+      context,
+      documentContext: book.title,
+      epubChapterHtmlContents: htmlContents,
+    );
   }
 
   void _onRecommendationsTap() {
@@ -249,7 +307,7 @@ class _ReaderViewState extends State<ReaderView> {
           ),
         ],
       ),
-      body: _buildBody(book),
+      body: SafeArea(top: false, child: _buildBody(book)),
       floatingActionButton: _epubController == null
           ? null
           : FloatingActionButton.extended(
