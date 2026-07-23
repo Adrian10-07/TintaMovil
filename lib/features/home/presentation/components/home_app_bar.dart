@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:tinta/core/ui/theme3material/theme.dart';
+import '../../../../core/localization/app_strings.dart';
 
 class HomeAppBar extends StatelessWidget {
-  final String greeting;
-  final String title;
+  final String? greeting;
+  final String? title;
   final String avatarInitial;
   final bool hasNotifications;
   final VoidCallback? onNotificationTap;
@@ -12,19 +13,28 @@ class HomeAppBar extends StatelessWidget {
 
   const HomeAppBar({
     Key? key,
-    this.greeting = 'Buenas tardes 👋',
-    this.title = 'Catálogo Tinta',
+    this.greeting,
+    this.title,
     this.avatarInitial = 'A',
-    this.hasNotifications = true,
+    this.hasNotifications = false,
     this.onNotificationTap,
     this.onUploadTap,
     this.onRecommendationsTap,
   }) : super(key: key);
 
+  /// Saludo según la hora del día, traducido al idioma actual.
+  String _defaultGreeting(AppStrings t) {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return '${t.goodMorning} 👋';
+    if (hour < 19) return '${t.goodAfternoon} 👋';
+    return '${t.goodEvening} 👋';
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final t = AppStrings.of(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -36,12 +46,12 @@ class HomeAppBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                greeting,
+                greeting ?? _defaultGreeting(t),
                 style: textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurface.withOpacity(0.50),
                 ),
               ),
-              Text(title, style: textTheme.titleMedium),
+              Text(title ?? t.catalogTitle, style: textTheme.titleMedium),
             ],
           ),
           const Spacer(),
@@ -85,18 +95,27 @@ class _Avatar extends StatelessWidget {
     return Container(
       width: 42,
       height: 42,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        gradient: MaterialTheme.avatarGradient,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Center(
-        child: Text(
-          initial,
-          style: const TextStyle(
-            color: Colors.white,
-            fontFamily: 'PlusJakartaSans',
-            fontWeight: FontWeight.w800,
-            fontSize: 18,
+      child: Image.asset(
+        'assets/icon/icon.png',
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          decoration: BoxDecoration(
+            gradient: MaterialTheme.avatarGradient,
+          ),
+          child: Center(
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: Colors.white,
+                fontFamily: 'PlusJakartaSans',
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+              ),
+            ),
           ),
         ),
       ),

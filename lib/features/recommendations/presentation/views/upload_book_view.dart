@@ -7,6 +7,7 @@ import 'package:tinta/core/ui/theme3material/theme.dart';
 import 'package:tinta/core/presentation/components/tinta_background.dart';
 
 import '../../data/datasources/recommendation_upload_datasource.dart';
+import '../../data/services/recent_documents_service.dart';
 import '../viewmodels/upload_book_viewmodel.dart';
 
 import '../../../document_viewer/presentation/views/pdf_results_view.dart';
@@ -18,18 +19,21 @@ import '../components/recent_documents_section.dart';
 
 /// Vista "Sube un libro" — el usuario elige un PDF y, al subirlo, el motor
 /// ML (Go) genera recomendaciones basadas en su contenido.
-///
-/// Es AUTOCONTENIDA: crea su propio ViewModel. Para mostrarla:
-///
-///   Navigator.push(context, MaterialPageRoute(
-///     builder: (_) => UploadBookView(userId: currentUser.id),
-///   ));
 class UploadBookView extends StatefulWidget {
   final String userId;
   final VoidCallback? onDone;
 
-  const UploadBookView({Key? key, required this.userId, this.onDone})
-      : super(key: key);
+  /// Cuando es true, se usa como pestaña dentro de MainTabShell — sin
+  /// botón de regreso en el header (no aplica: no hay a dónde "volver",
+  /// es una pestaña, no una pantalla apilada).
+  final bool embedded;
+
+  const UploadBookView({
+    Key? key,
+    required this.userId,
+    this.onDone,
+    this.embedded = false,
+  }) : super(key: key);
 
   @override
   State<UploadBookView> createState() => _UploadBookViewState();
@@ -39,17 +43,37 @@ class _UploadBookViewState extends State<UploadBookView> {
   late final UploadBookViewModel _viewModel;
   final TextEditingController _questionController = TextEditingController();
 
+  List<RecentDocumentRecord>? _recentDocs;
+
   @override
   void initState() {
     super.initState();
     _viewModel = UploadBookViewModel(RecommendationUploadDataSource());
+    _viewModel.addListener(_onViewModelChanged);
+    _loadRecentDocuments();
   }
 
   @override
   void dispose() {
+    _viewModel.removeListener(_onViewModelChanged);
     _viewModel.dispose();
     _questionController.dispose();
     super.dispose();
+  }
+
+  UploadState? _lastKnownState;
+
+  void _onViewModelChanged() {
+    if (_viewModel.state == UploadState.success &&
+        _lastKnownState != UploadState.success) {
+      _loadRecentDocuments();
+    }
+    _lastKnownState = _viewModel.state;
+  }
+
+  Future<void> _loadRecentDocuments() async {
+    final docs = await RecentDocumentsService.getAll(widget.userId);
+    if (mounted) setState(() => _recentDocs = docs);
   }
 
   Future<void> _pickPdf() async {
@@ -69,9 +93,48 @@ class _UploadBookViewState extends State<UploadBookView> {
     await _viewModel.generate(userId: widget.userId, questions: preguntas);
   }
 
-  void _onChatTap(RecentDocument document) {
-    // Placeholder: navegación a chat por documento, pendiente de
-    // implementar cuando exista persistencia real de documentos.
+  void _openDocument(RecentDocumentRecord record) {
+    final file = File(record.path);
+    if (!file.existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ese archivo ya no está disponible en el dispositivo.')),
+      );
+      _loadRecentDocuments();
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PdfResultsView(pdfFile: file)),
+    ).then((_) => _loadRecentDocuments());
+  }
+
+  Future<void> _removeDocument(RecentDocumentRecord record) async {
+    await RecentDocumentsService.remove(widget.userId, record.path);
+    _loadRecentDocuments();
+  }
+
+  void _showPrivacyInfo() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Privacidad de tus documentos'),
+        content: const Text(
+          'Tu PDF se sube por conexión segura (HTTPS) únicamente al '
+              'servidor de análisis de Tinta para generar el resumen y las '
+              'recomendaciones — no se comparte con nadie más. '
+              'El archivo también se guarda en tu dispositivo para que '
+              'puedas volver a abrirlo sin conexión, y puedes borrarlo de '
+              '"Recientes" cuando quieras.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -98,6 +161,8 @@ class _UploadBookViewState extends State<UploadBookView> {
               children: [
                 RecommendationsHeader(
                   onBack: () => Navigator.maybePop(context),
+                  onPrivacyTap: _showPrivacyInfo,
+                  showBackButton: !widget.embedded,
                 ),
                 Expanded(
                   child: Consumer<UploadBookViewModel>(
@@ -120,10 +185,25 @@ class _UploadBookViewState extends State<UploadBookView> {
                           const SizedBox(height: 12),
                           _ResultArea(vm: vm, onDone: widget.onDone),
                           const SizedBox(height: 28),
-                          RecentDocumentsSection(
-                            documents: mockRecentDocuments,
-                            onChatTap: _onChatTap,
-                          ),
+                          if (_recentDocs == null)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 20),
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          else
+                            RecentDocumentsSection(
+                              documents: _recentDocs!
+                                  .map(_toDisplayDocument)
+                                  .toList(),
+                              onTap: (doc) => _openDocument(
+                                  _recentDocs!.firstWhere((r) => r.path == doc.path)),
+                              onChatTap: (doc) => _openDocument(
+                                  _recentDocs!.firstWhere((r) => r.path == doc.path)),
+                              onDeleteTap: (doc) => _removeDocument(
+                                  _recentDocs!.firstWhere((r) => r.path == doc.path)),
+                            ),
                         ],
                       ),
                     ),
@@ -136,11 +216,18 @@ class _UploadBookViewState extends State<UploadBookView> {
       ),
     );
   }
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Campo de pregunta opcional
-// ─────────────────────────────────────────────────────────────────────────────
+  RecentDocument _toDisplayDocument(RecentDocumentRecord r) {
+    return RecentDocument(
+      path: r.path,
+      title: r.title,
+      pages: r.pages,
+      sizeMb: r.sizeMb,
+      type: DocumentType.pdf,
+      progress: (r.recommendationsCount / 5).clamp(0.0, 1.0),
+    );
+  }
+}
 
 class _QuestionField extends StatelessWidget {
   final TextEditingController controller;
@@ -148,21 +235,32 @@ class _QuestionField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      decoration: const InputDecoration(
-        labelText: '¿Qué te interesa de este libro? (opcional)',
-        hintText: 'Ej. cuántos huesos tiene el cráneo',
-        border: OutlineInputBorder(),
-      ),
-      maxLines: 2,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: '¿Qué te interesa de este libro? (opcional)',
+            hintText: 'Ej. cuántos huesos tiene el cráneo',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Text(
+            'Se envía a la IA junto con tu documento para enfocar las recomendaciones.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Botón de generar
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _GenerateButton extends StatelessWidget {
   final UploadBookViewModel vm;
@@ -184,15 +282,11 @@ class _GenerateButton extends StatelessWidget {
           width: 18,
           child: CircularProgressIndicator(strokeWidth: 2),
         )
-            : const Text('Generar recomendaciones'),
+            : const Text('Analizar y ver'),
       ),
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Resultado / error
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ResultArea extends StatelessWidget {
   final UploadBookViewModel vm;
@@ -219,20 +313,50 @@ class _ResultArea extends StatelessWidget {
         return const Center(child: CircularProgressIndicator());
 
       case UploadState.error:
+        final esOffline = vm.isOfflineError;
         return Card(
-          color: colorScheme.errorContainer.withOpacity(0.4),
+          color: esOffline
+              ? colorScheme.tertiaryContainer.withOpacity(0.5)
+              : colorScheme.errorContainer.withOpacity(0.4),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.error_outline_rounded, color: colorScheme.error),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    vm.errorMessage ?? 'Ocurrió un error',
-                    style: textTheme.bodyMedium,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      esOffline ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+                      color: esOffline ? colorScheme.onTertiaryContainer : colorScheme.error,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        vm.errorMessage ?? 'Ocurrió un error',
+                        style: textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
                 ),
+                if (esOffline && vm.selectedFile != null) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PdfResultsView(pdfFile: vm.selectedFile!),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                      label: const Text('Ver PDF sin recomendaciones'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

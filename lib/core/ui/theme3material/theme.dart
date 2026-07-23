@@ -107,6 +107,119 @@ class MaterialTheme {
     );
   }
 
+  /// Variante "Azul" — mismo patrón M3 que light/dark pero con acento
+  /// azul en vez del verde de Tinta. Pensado para quien prefiere un tono
+  /// más frío/neutro.
+  static ColorScheme blueScheme() {
+    return const ColorScheme(
+      brightness: Brightness.light,
+      primary: Color(0xff2E5FA3),
+      surfaceTint: Color(0xff2E5FA3),
+      onPrimary: Color(0xffffffff),
+      primaryContainer: Color(0xffD3E3FF),
+      onPrimaryContainer: Color(0xff00306B),
+      secondary: Color(0xff4A6580),
+      onSecondary: Color(0xffffffff),
+      secondaryContainer: Color(0xffCEE5FF),
+      onSecondaryContainer: Color(0xff102B41),
+      tertiary: Color(0xff3E6374),
+      onTertiary: Color(0xffffffff),
+      tertiaryContainer: Color(0xffC2E8FC),
+      onTertiaryContainer: Color(0xff254B5C),
+      error: Color(0xffBA1A1A),
+      onError: Color(0xffffffff),
+      errorContainer: Color(0xffFFDAD6),
+      onErrorContainer: Color(0xff93000A),
+      surface: Color(0xffF7F9FF),
+      onSurface: Color(0xff181C22),
+      onSurfaceVariant: Color(0xff42474E),
+      outline: Color(0xff73777F),
+      outlineVariant: Color(0xffC3C7CF),
+      shadow: Color(0xff000000),
+      scrim: Color(0xff000000),
+      inverseSurface: Color(0xff2D3138),
+      inversePrimary: Color(0xffA9C8FF),
+      primaryFixed: Color(0xffD3E3FF),
+      onPrimaryFixed: Color(0xff00184A),
+      primaryFixedDim: Color(0xffA9C8FF),
+      onPrimaryFixedVariant: Color(0xff00306B),
+      secondaryFixed: Color(0xffCEE5FF),
+      onSecondaryFixed: Color(0xff001D34),
+      secondaryFixedDim: Color(0xffB2C9E6),
+      onSecondaryFixedVariant: Color(0xff324D67),
+      tertiaryFixed: Color(0xffC2E8FC),
+      onTertiaryFixed: Color(0xff001F2A),
+      tertiaryFixedDim: Color(0xffA6CCE0),
+      onTertiaryFixedVariant: Color(0xff254B5C),
+      surfaceDim: Color(0xffD7DAE0),
+      surfaceBright: Color(0xffF7F9FF),
+      surfaceContainerLowest: Color(0xffffffff),
+      surfaceContainerLow: Color(0xffF1F3FA),
+      surfaceContainer: Color(0xffEBEDF4),
+      surfaceContainerHigh: Color(0xffE5E8EF),
+      surfaceContainerHighest: Color(0xffDFE2E9),
+    );
+  }
+
+  /// Variante "Súper negro" — fondo negro puro (#000000, ideal para
+  /// pantallas OLED y para quien prefiere el máximo contraste/mínimo
+  /// brillo), con texto en gris claro en vez de blanco puro para que sea
+  /// más cómodo a la vista en sesiones largas de lectura nocturna.
+  static ColorScheme superBlackScheme() {
+    return const ColorScheme(
+      brightness: Brightness.dark,
+      primary: Color(0xff8bd6b5),
+      surfaceTint: Color(0xff8bd6b5),
+      onPrimary: Color(0xff003827),
+      primaryContainer: Color(0xff00291C),
+      onPrimaryContainer: Color(0xffA7F2D1),
+      secondary: Color(0xff9AA0A6),
+      onSecondary: Color(0xff1A1C1E),
+      secondaryContainer: Color(0xff2A2D30),
+      onSecondaryContainer: Color(0xffC9CDD1),
+      tertiary: Color(0xffA6CCE0),
+      onTertiary: Color(0xff093544),
+      tertiaryContainer: Color(0xff12222A),
+      onTertiaryContainer: Color(0xffC2E8FC),
+      error: Color(0xffFFB4AB),
+      onError: Color(0xff690005),
+      errorContainer: Color(0xff3A0A0A),
+      onErrorContainer: Color(0xffFFDAD6),
+      // Negro puro (no gris oscuro) — clave del tema "súper negro".
+      surface: Color(0xff000000),
+      // Gris claro en vez de blanco puro: menos deslumbrante en sesiones
+      // largas de lectura, que era justo el pedido.
+      onSurface: Color(0xffC9CDD1),
+      onSurfaceVariant: Color(0xffA0A4A8),
+      outline: Color(0xff5C6066),
+      outlineVariant: Color(0xff2E3134),
+      shadow: Color(0xff000000),
+      scrim: Color(0xff000000),
+      inverseSurface: Color(0xffC9CDD1),
+      inversePrimary: Color(0xff1c6b50),
+      primaryFixed: Color(0xffA7F2D1),
+      onPrimaryFixed: Color(0xff002116),
+      primaryFixedDim: Color(0xff8bd6b5),
+      onPrimaryFixedVariant: Color(0xff00513B),
+      secondaryFixed: Color(0xffC9CDD1),
+      onSecondaryFixed: Color(0xff1A1C1E),
+      secondaryFixedDim: Color(0xff9AA0A6),
+      onSecondaryFixedVariant: Color(0xff44474A),
+      tertiaryFixed: Color(0xffC2E8FC),
+      onTertiaryFixed: Color(0xff001F2A),
+      tertiaryFixedDim: Color(0xffA6CCE0),
+      onTertiaryFixedVariant: Color(0xff254B5C),
+      surfaceDim: Color(0xff000000),
+      surfaceBright: Color(0xff29292B),
+      surfaceContainerLowest: Color(0xff000000),
+      surfaceContainerLow: Color(0xff0A0A0B),
+      surfaceContainer: Color(0xff121213),
+      surfaceContainerHigh: Color(0xff1C1C1E),
+      surfaceContainerHighest: Color(0xff272728),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // TIPOGRAFÍA TINTA
   // Plus Jakarta Sans (display, headline, title) + DM Sans (body, label)
 
@@ -232,6 +345,11 @@ class MaterialTheme {
 
   ThemeData dark() => theme(darkScheme());
 
+  ThemeData blue() => theme(blueScheme());
+
+  ThemeData superBlack() => theme(superBlackScheme());
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // THEME CONSTRUCTOR — Aplica tipografía + estilos de componentes
 
   ThemeData theme(ColorScheme colorScheme) {
