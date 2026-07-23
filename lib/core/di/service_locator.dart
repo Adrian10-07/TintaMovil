@@ -39,6 +39,7 @@ import '/core/network/sse_client.dart';
 import '../../features/tutorAI/data/datasources/remote_tutor_datasource.dart';
 import '../../features/tutorAI/data/repositories/document_registry_impl.dart';
 import '../../features/tutorAI/domain/repositories/document_registry.dart';
+import '../../features/tutorAI/presentation/viewmodels/remote_tutor_session_manager.dart';
 
 // Knowledge Base
 import '../../features/knowledge_base/data/datasources/knowledge_local_datasource.dart';
@@ -228,5 +229,9 @@ void registerTutorAi() {
 
   sl.registerLazySingleton<DocumentRegistry>(
         () => DocumentRegistryImpl(),
+  );
+
+  sl.registerLazySingleton<RemoteTutorSessionManager>(
+        () => RemoteTutorSessionManager(sl<RemoteTutorDatasource>()),
   );
 }

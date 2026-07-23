@@ -8,6 +8,7 @@ import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/tutor_source.dart';
 import '../components/sources_footer.dart';
 import '../viewmodels/remote_tutor_chat_viewmodel.dart';
+import '../viewmodels/remote_tutor_session_manager.dart';
 
 class RemoteTutorChatSheet extends StatelessWidget {
   final String documentContext;
@@ -54,12 +55,13 @@ class RemoteTutorChatSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<RemoteTutorChatViewModel>(
-      create: (_) => RemoteTutorChatViewModel(
-        sl<RemoteTutorDatasource>(),
-        remoteDocumentId: remoteDocumentId,
-        documentContext: documentContext,
-      ),
+    final vm = sl<RemoteTutorSessionManager>().getOrCreate(
+      remoteDocumentId: remoteDocumentId,
+      documentContext: documentContext,
+    );
+
+    return ChangeNotifierProvider<RemoteTutorChatViewModel>.value(
+      value: vm,
       child: _RemoteChatContent(documentContext: documentContext),
     );
   }
