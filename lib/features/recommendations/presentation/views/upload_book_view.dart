@@ -67,6 +67,19 @@ class _UploadBookViewState extends State<UploadBookView> {
     if (_viewModel.state == UploadState.success &&
         _lastKnownState != UploadState.success) {
       _loadRecentDocuments();
+
+      // Navegar UNA sola vez, exactamente en la transición hacia success.
+      final file = _viewModel.selectedFile;
+      if (file != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => PdfResultsView(pdfFile: file)),
+            );
+          }
+        });
+      }
     }
     _lastKnownState = _viewModel.state;
   }
@@ -300,16 +313,8 @@ class _ResultArea extends StatelessWidget {
 
     switch (vm.state) {
       case UploadState.success:
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted && vm.selectedFile != null) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PdfResultsView(pdfFile: vm.selectedFile!),
-              ),
-            );
-          }
-        });
+      // La navegación ahora ocurre en _onViewModelChanged() del widget
+      // padre
         return const Center(child: CircularProgressIndicator());
 
       case UploadState.error:
