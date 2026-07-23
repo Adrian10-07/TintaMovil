@@ -154,6 +154,55 @@ class TtsService {
     return null;
   }
 
+  // ── Limpieza de markdown ──────────────────────────────────────────
+
+  /// Limpia el texto de markdown y símbolos para que el TTS lea solo
+  /// texto natural. Enfoque simple: eliminar los caracteres problemáticos
+  /// directamente en vez de parsear markdown con regex frágiles.
+  String _cleanForSpeech(String text) {
+    var clean = text;
+
+    // 1. Bloques de código completos → omitir su contenido
+    clean = clean.replaceAll(RegExp(r'```[\s\S]*?```'), '. ');
+
+    // 2. Código inline: `texto` → solo el texto
+    clean = clean.replaceAll(RegExp(r'`([^`]+)`'), r'$1');
+
+    // 3. Links: [texto](url) → solo el texto visible
+    clean = clean.replaceAll(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), r'$1');
+
+    // 4. Imágenes: ![alt](url) → omitir
+    clean = clean.replaceAll(RegExp(r'!\[([^\]]*)\]\([^\)]+\)'), '');
+
+    // 5. Eliminar TODOS los caracteres que el TTS lee mal.
+    //    Esto es lo que resuelve el problema de los asteriscos.
+    clean = clean.replaceAll('*', '');
+    clean = clean.replaceAll('#', '');
+    clean = clean.replaceAll('~', '');
+    clean = clean.replaceAll('|', '');
+    clean = clean.replaceAll('>', '');
+    clean = clean.replaceAll('`', '');
+    clean = clean.replaceAll('\$', '');
+    clean = clean.replaceAll('\\', '');
+
+    // 6. Listas con guión al inicio de línea: - item → item
+    clean = clean.replaceAll(RegExp(r'^\s*-\s+', multiLine: true), '');
+
+    // 7. Listas numeradas: 1. item → item
+    clean = clean.replaceAll(RegExp(r'^\s*\d+\.\s+', multiLine: true), '');
+
+    // 8. Líneas horizontales (---, ___) → pausa
+    clean = clean.replaceAll(RegExp(r'^[\-_]{3,}\s*$', multiLine: true), '. ');
+
+    // 9. Múltiples saltos de línea → uno solo
+    clean = clean.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+
+    // 10. Espacios múltiples → uno solo
+    clean = clean.replaceAll(RegExp(r' {2,}'), ' ');
+
+    return clean.trim();
+  }
+
   // ── Reproducción en vivo ────────────────────────────────────────────
 
   Future<void> speak(String text, {required String messageId}) async {
@@ -168,7 +217,7 @@ class TtsService {
       activeMessageId: messageId,
     ));
 
-    await _tts.speak(text);
+    await _tts.speak(_cleanForSpeech(text));
   }
 
   Future<void> stop() async {
@@ -217,9 +266,9 @@ class TtsService {
       // awaitSynthCompletion(true) hace que este await espere
       // REALMENTE hasta que el archivo esté escrito en disco.
       if (Platform.isAndroid) {
-        await _tts.synthesizeToFile(text, fileName);
+        await _tts.synthesizeToFile(_cleanForSpeech(text), fileName);
       } else {
-        await _tts.synthesizeToFile(text, fullPath);
+        await _tts.synthesizeToFile(_cleanForSpeech(text), fullPath);
       }
 
       // ── Localizar el archivo generado ────────────────────────────
