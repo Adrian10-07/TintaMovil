@@ -40,10 +40,10 @@ abstract class KnowledgeRepository {
 
   // ── Bases de conocimiento curadas (encuesta post-registro) ────────────
   //
-  // A diferencia de indexDocument (que extrae texto de un PDF subido por
-  // el usuario), estas bases vienen empaquetadas como assets Markdown ya
-  // curados: cada sección "### Título" es un concepto autocontenido, así
-  // que se indexan directo como chunks, sin pasar por PdfTextExtractor.
+  // Nota: la pantalla de encuesta ya no se muestra en la app (se quitó de
+  // main.dart), pero se dejan estos 2 métodos aquí porque el archivo del
+  // ViewModel de la encuesta se conservó sin borrar — así compila sin
+  // tocar ese archivo.
 
   /// Verifica si una base de conocimiento (identificada por [kbId], ej.
   /// "kb_historia") ya fue indexada localmente.
@@ -51,11 +51,6 @@ abstract class KnowledgeRepository {
 
   /// Indexa una base de conocimiento a partir de contenido Markdown ya
   /// cargado en memoria (típicamente desde un asset vía rootBundle).
-  ///
-  /// Divide el markdown por encabezados "### " — cada uno se vuelve un
-  /// chunk propio (a diferencia del chunker de PDFs, que corta cada
-  /// ~300 palabras). Esto preserva la unidad de significado de cada
-  /// concepto curado.
   Future<void> indexMarkdownKnowledgeBase(
       String kbId,
       String title,

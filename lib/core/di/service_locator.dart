@@ -33,12 +33,14 @@ import '../../features/tutorAI/data/repositories/tutor_repository_impl.dart';
 import '../../features/tutorAI/domain/repositories/tutor_repository.dart';
 import '../../features/tutorAI/presentation/viewmodels/tutor_chat_viewmodel.dart';
 import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
+import '../../features/tutorAI/data/services/in_memory_rag_service.dart';
 
 // Tutor AI — remoto (RAG en Railway)
 import '/core/network/sse_client.dart';
 import '../../features/tutorAI/data/datasources/remote_tutor_datasource.dart';
 import '../../features/tutorAI/data/repositories/document_registry_impl.dart';
 import '../../features/tutorAI/domain/repositories/document_registry.dart';
+import '../../features/tutorAI/presentation/viewmodels/remote_tutor_session_manager.dart';
 
 // Knowledge Base
 import '../../features/knowledge_base/data/datasources/knowledge_local_datasource.dart';
@@ -47,7 +49,6 @@ import '../../features/knowledge_base/data/services/pdf_text_extractor.dart';
 import '../../features/knowledge_base/data/services/text_chunker.dart';
 import '../../features/knowledge_base/data/services/tfidf_engine.dart';
 import '../../features/knowledge_base/domain/repositories/knowledge_repository.dart';
-import '../../features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
 
 // Clubs
 import '../../features/clubs/data/datasources/club_remote_datasource.dart';
@@ -187,18 +188,10 @@ void registerKnowledgeBase() {
       datasource: sl(),
     ),
   );
-
-  // Encuesta post-registro: qué bases de conocimiento descargar.
-  // registerFactory: nueva instancia cada vez que se abre la encuesta.
-  sl.registerFactory<KnowledgeBaseSurveyViewModel>(
-        () => KnowledgeBaseSurveyViewModel(sl<KnowledgeRepository>()),
-  );
 }
 
 void registerTutorAi() {
   // Datasource activo del tutor local: Gemma 3 1B vía flutter_gemma.
-  // MockTutorDatasource se usa solo si _useMockLlmForEmulator = true
-  // (por ejemplo en emulador x86_64, donde flutter_gemma no corre).
   sl.registerLazySingleton<TutorLlmDatasource>(
         () => _useMockLlmForEmulator
         ? MockTutorDatasource()
@@ -213,10 +206,14 @@ void registerTutorAi() {
     ),
   );
 
+  sl.registerLazySingleton<InMemoryRagService>(
+        () => InMemoryRagService(),
+  );
+
   sl.registerLazySingleton<TutorChatViewModel>(
         () => TutorChatViewModel(
       sl<TutorRepository>(),
-      sl<KnowledgeRepository>(),
+      sl<InMemoryRagService>(),
     ),
   );
 
@@ -233,5 +230,9 @@ void registerTutorAi() {
 
   sl.registerLazySingleton<DocumentRegistry>(
         () => DocumentRegistryImpl(),
+  );
+
+  sl.registerLazySingleton<RemoteTutorSessionManager>(
+        () => RemoteTutorSessionManager(sl<RemoteTutorDatasource>()),
   );
 }

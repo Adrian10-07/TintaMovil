@@ -8,21 +8,26 @@ import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/tutor_source.dart';
 import '../components/sources_footer.dart';
 import '../viewmodels/remote_tutor_chat_viewmodel.dart';
+import '../viewmodels/remote_tutor_session_manager.dart';
 
 class RemoteTutorChatSheet extends StatelessWidget {
   final String documentContext;
-  final String remoteDocumentId;
+  final String? remoteDocumentId;
+  final VoidCallback? onSwitchToOffline; // ← NUEVO
+
 
   const RemoteTutorChatSheet({
     super.key,
     required this.documentContext,
-    required this.remoteDocumentId,
+    this.remoteDocumentId, // ← ya no required
+    this.onSwitchToOffline, // ← NUEVO
   });
 
   static Future<void> show(
       BuildContext context, {
         required String documentContext,
-        required String remoteDocumentId,
+        String? remoteDocumentId, // ← ya no required
+        VoidCallback? onSwitchToOffline, // ← NUEVO
       }) {
     return showModalBottomSheet(
       context: context,
@@ -34,7 +39,6 @@ class RemoteTutorChatSheet extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (sheetContext) => Padding(
-        // Empuja todo el sheet hacia arriba cuando el teclado aparece.
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
         ),
@@ -46,6 +50,7 @@ class RemoteTutorChatSheet extends StatelessWidget {
           builder: (_, __) => RemoteTutorChatSheet(
             documentContext: documentContext,
             remoteDocumentId: remoteDocumentId,
+            onSwitchToOffline: onSwitchToOffline,
           ),
         ),
       ),
@@ -54,21 +59,29 @@ class RemoteTutorChatSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<RemoteTutorChatViewModel>(
-      create: (_) => RemoteTutorChatViewModel(
-        sl<RemoteTutorDatasource>(),
-        remoteDocumentId: remoteDocumentId,
+    final vm = sl<RemoteTutorSessionManager>().getOrCreate(
+      remoteDocumentId: remoteDocumentId,
+      documentContext: documentContext,
+    );
+
+    return ChangeNotifierProvider<RemoteTutorChatViewModel>.value(
+      value: vm,
+      child: _RemoteChatContent(
         documentContext: documentContext,
+        onSwitchToOffline: onSwitchToOffline, // ← NUEVO, pasar hacia abajo
       ),
-      child: _RemoteChatContent(documentContext: documentContext),
     );
   }
 }
 
 class _RemoteChatContent extends StatelessWidget {
   final String documentContext;
+  final VoidCallback? onSwitchToOffline; // ← NUEVO
 
-  const _RemoteChatContent({required this.documentContext});
+  const _RemoteChatContent({
+    required this.documentContext,
+    this.onSwitchToOffline,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +90,13 @@ class _RemoteChatContent extends StatelessWidget {
     return Column(
       children: [
         _Header(documentContext: documentContext),
-        Expanded(child: _Body(vm: vm, documentContext: documentContext)),
+        Expanded(
+          child: _Body(
+            vm: vm,
+            documentContext: documentContext,
+            onSwitchToOffline: onSwitchToOffline, // ← NUEVO
+          ),
+        ),
         _InputBar(
           enabled: vm.canSend,
           onSend: vm.sendMessage,
@@ -189,15 +208,20 @@ class _Header extends StatelessWidget {
 class _Body extends StatelessWidget {
   final RemoteTutorChatViewModel vm;
   final String documentContext;
+  final VoidCallback? onSwitchToOffline; // ← NUEVO
 
-  const _Body({required this.vm, required this.documentContext});
+  const _Body({
+    required this.vm,
+    required this.documentContext,
+    this.onSwitchToOffline,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (vm.messages.isEmpty) {
       return _EmptyState(documentContext: documentContext);
     }
-    return _MessagesList(vm: vm);
+    return _MessagesList(vm: vm, onSwitchToOffline: onSwitchToOffline);
   }
 }
 
@@ -283,7 +307,9 @@ class _SuggestionChip extends StatelessWidget {
 
 class _MessagesList extends StatefulWidget {
   final RemoteTutorChatViewModel vm;
-  const _MessagesList({required this.vm});
+  final VoidCallback? onSwitchToOffline; // ← NUEVO
+
+  const _MessagesList({required this.vm, this.onSwitchToOffline});
 
   @override
   State<_MessagesList> createState() => _MessagesListState();
@@ -324,7 +350,12 @@ class _MessagesListState extends State<_MessagesList> {
       itemCount: itemCount,
       itemBuilder: (_, i) {
         if (i == messages.length && error != null) {
-          return _ErrorBanner(error: error);
+          return _ErrorBanner(
+            error: error,
+            showSwitchToOffline:
+            widget.vm.isConnectivityIssue && widget.onSwitchToOffline != null,
+            onSwitchToOffline: widget.onSwitchToOffline,
+          );
         }
         final msg = messages[i];
         final sources = msg.isAssistant
@@ -501,7 +532,14 @@ class _InputBarState extends State<_InputBar> {
 
 class _ErrorBanner extends StatelessWidget {
   final String error;
-  const _ErrorBanner({required this.error});
+  final bool showSwitchToOffline; // ← NUEVO
+  final VoidCallback? onSwitchToOffline; // ← NUEVO
+
+  const _ErrorBanner({
+    required this.error,
+    this.showSwitchToOffline = false,
+    this.onSwitchToOffline,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -509,14 +547,38 @@ class _ErrorBanner extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 12),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cs.errorContainer,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        error,
-        style: tt.bodySmall?.copyWith(color: cs.onErrorContainer),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.wifi_off_rounded, size: 18, color: cs.onErrorContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  error,
+                  style: tt.bodySmall?.copyWith(color: cs.onErrorContainer),
+                ),
+              ),
+            ],
+          ),
+          if (showSwitchToOffline) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: onSwitchToOffline,
+                icon: const Icon(Icons.offline_bolt_rounded, size: 18),
+                label: const Text('Cambiar a modo sin conexión'),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

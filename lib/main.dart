@@ -8,8 +8,6 @@ import 'core/ui/theme3material/theme.dart';
 import 'features/auth/presentation/viewmodels/auth_viewmodel.dart';
 import 'features/user/presentation/viewmodels/user_viewmodel.dart';
 import 'features/clubs/presentation/viewmodels/clubs_viewmodel.dart';
-import 'features/knowledge_base/data/datasources/knowledge_base_prefs.dart';
-import 'features/knowledge_base/presentation/viewmodels/knowledge_base_survey_viewmodel.dart';
 import 'core/network/session_storage.dart';
 import 'core/network/http_client.dart';
 
@@ -17,14 +15,12 @@ import 'features/auth/presentation/views/login_view.dart';
 import 'features/auth/presentation/views/register_view.dart';
 import 'features/home/presentation/views/book_detail_view.dart';
 import 'features/reader/presentation/views/reader_view.dart';
-import 'features/knowledge_base/presentation/views/knowledge_base_survey_view.dart';
 import 'core/presentation/views/main_tab_shell.dart';
 import 'core/settings/app_settings_controller.dart';
 
-// ── NUEVO: inicialización del motor Gemma on-device ─────────────────────
+// ── Inicialización del motor Gemma on-device ─────────────────────────
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'features/tutorAI/data/datasources/tutor_llm_datasource.dart';
-import 'core/network/http_client.dart';
 
 /// Observer global de navegación. Permite que pantallas como Home se
 /// enteren cuando vuelven a quedar visibles tras un pop (por ejemplo, al
@@ -53,59 +49,21 @@ Future<void> main() async {
   runApp(const TintaApp());
 }
 
-/// Se llama tras login o registro exitoso. Decide si el usuario debe pasar
-/// primero por la encuesta de bases de conocimiento o ir directo a Home:
-///   - Cuenta recién creada → siempre pasa por la encuesta.
-///   - Cuenta existente → solo si nunca la contestó en este dispositivo.
+/// Se llama tras login o registro exitoso. Ya no pasa por ninguna
+/// encuesta intermedia (se quitó la de Knowledge Base) — va directo a
+/// Home siempre. Aprovecha para disparar el precargado de Gemma en
+/// background, sin bloquear la navegación.
 Future<void> _afterAuthSuccess(
     BuildContext ctx, {
       bool isNewAccount = false,
     }) async {
-  final userVm = sl<UserViewModel>();
-  if (userVm.profile == null) {
-    await userVm.loadProfile();
-  }
-  final userId = userVm.profile?.id;
-
   if (!ctx.mounted) return;
 
-  if (userId == null) {
-    // No se pudo confirmar el usuario; ir a Home de todas formas
-    // en vez de dejar a la persona atorada en una pantalla en blanco.
-    Navigator.pushReplacementNamed(ctx, '/home');
-    return;
-  }
+  sl<TutorLlmDatasource>().ensureModelReady().catchError((e) {
+    debugPrint('Preload de Gemma falló: $e');
+  });
 
-  // Nota: la racha de lectura YA NO se cuenta aquí. Antes se contaba con
-  // solo iniciar sesión; ahora se cuenta en reader_view.dart / pdf_results_view.dart,
-  // justo cuando el usuario abre un libro o documento de verdad.
-
-  final alreadyCompleted =
-  isNewAccount ? false : await KnowledgeBasePrefs.isSurveyCompleted(userId);
-
-  if (!ctx.mounted) return;
-
-  if (alreadyCompleted) {
-    sl<TutorLlmDatasource>()
-        .ensureModelReady()
-        .catchError((e) {
-      debugPrint('Preload de Gemma falló: $e');
-    });
-
-    Navigator.pushReplacementNamed(ctx, '/home');
-  } else {
-    sl<TutorLlmDatasource>()
-        .ensureModelReady()
-        .catchError((e) {
-      debugPrint('Preload de Gemma falló: $e');
-    });
-
-    Navigator.pushReplacementNamed(
-      ctx,
-      '/kb-survey',
-      arguments: userId,
-    );
-  }
+  Navigator.pushReplacementNamed(ctx, '/home');
 }
 
 /// Primera pantalla que se muestra al abrir la app.
@@ -128,9 +86,7 @@ class _SplashGateState extends State<_SplashGate> {
   }
 
   void _preloadTutorModel() {
-    sl<TutorLlmDatasource>()
-        .ensureModelReady()
-        .catchError((e) {
+    sl<TutorLlmDatasource>().ensureModelReady().catchError((e) {
       debugPrint(
         'Preload de Gemma falló (se reintentará al abrir el chat): $e',
       );
@@ -159,23 +115,10 @@ class _SplashGateState extends State<_SplashGate> {
       final userId = userVm.profile?.id;
       if (userId == null) throw Exception('Perfil no disponible');
 
-      // La racha ya no se cuenta aquí (ver nota en _afterAuthSuccess).
-
       if (!mounted) return;
 
-      final alreadyCompleted =
-      await KnowledgeBasePrefs.isSurveyCompleted(userId);
-
-      if (alreadyCompleted) {
-        _preloadTutorModel();
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        _preloadTutorModel();
-        Navigator.pushReplacementNamed(
-            context, '/kb-survey',
-          arguments: userId,
-        );
-      }
+      _preloadTutorModel();
+      Navigator.pushReplacementNamed(context, '/home');
     } catch (_) {
       // El token guardado ya no sirve (expiró o fue revocado):
       // limpiamos la sesión y regresamos a login.
@@ -272,21 +215,6 @@ class TintaApp extends StatelessWidget {
                       ),
                     ),
                   ),
-                  '/kb-survey': (ctx) {
-                    final userId =
-                    ModalRoute.of(ctx)!.settings.arguments as String;
-                    return ChangeNotifierProvider<KnowledgeBaseSurveyViewModel>(
-                      create: (_) => sl<KnowledgeBaseSurveyViewModel>(),
-                      child: Builder(
-                        builder: (innerCtx) => KnowledgeBaseSurveyView(
-                          viewModel: innerCtx.read<KnowledgeBaseSurveyViewModel>(),
-                          userId: userId,
-                          onDone: () =>
-                              Navigator.pushReplacementNamed(innerCtx, '/home'),
-                        ),
-                      ),
-                    );
-                  },
                   '/home': (_) => const MainTabShell(),
                   '/book-detail': (_) => const BookDetailView(),
                   '/reader': (_) => const ReaderView(),
