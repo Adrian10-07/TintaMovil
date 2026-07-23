@@ -15,6 +15,7 @@ import '../../../user/presentation/viewmodels/user_viewmodel.dart';
 /// Vista del visor de documentos (feature: document_viewer).
 ///
 /// Muestra un PDF a pantalla completa con:
+///   - Botón ← en el AppBar → vuelve directo a Home.
 ///   - Botón ✨ en el AppBar → abre el chat con Tinta AI (modo documento).
 ///   - FAB → abre el panel de recomendaciones relacionadas.
 class PdfResultsView extends StatefulWidget {
@@ -89,6 +90,13 @@ class _PdfResultsViewState extends State<PdfResultsView> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Volver al inicio',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context, '/home', (route) => false,
+          ),
+        ),
         title: Text(_fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
@@ -206,8 +214,6 @@ class _RecommendationsSheetContent extends StatelessWidget {
       return Center(child: CircularProgressIndicator(color: mintPrimary));
     }
     if (items!.isEmpty) {
-      // Mensaje amigable: no es un error, es que no se encontraron
-      // coincidencias para el tema de este libro en particular.
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),

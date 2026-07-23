@@ -193,27 +193,6 @@ class _LoginViewState extends State<LoginView> {
                             validator: (v) => v!.isEmpty ? 'Requerido' : null,
                           ),
 
-                          const SizedBox(height: 8),
-
-                          // Olvidé contraseña
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {}, // UI only
-                              style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: const Size(0, 36)),
-                              child: Text(
-                                '¿Olvidaste tu contraseña?',
-                                style: TextStyle(
-                                  fontFamily: 'DMSans',
-                                  fontSize: 13,
-                                  color: _mintPrimary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
