@@ -7,7 +7,6 @@ import 'core/ui/theme3material/theme.dart';
 
 import 'features/auth/presentation/viewmodels/auth_viewmodel.dart';
 import 'features/user/presentation/viewmodels/user_viewmodel.dart';
-import 'features/clubs/presentation/viewmodels/clubs_viewmodel.dart';
 import 'core/network/session_storage.dart';
 import 'core/network/http_client.dart';
 
@@ -17,10 +16,8 @@ import 'features/home/presentation/views/book_detail_view.dart';
 import 'features/reader/presentation/views/reader_view.dart';
 import 'core/presentation/views/main_tab_shell.dart';
 import 'core/settings/app_settings_controller.dart';
-
-// ── Inicialización del motor Gemma on-device ─────────────────────────
-import 'package:flutter_gemma/core/api/flutter_gemma.dart';
-import 'features/tutorAI/data/datasources/tutor_llm_datasource.dart';
+import 'features/legal/data/services/disclaimer_service.dart';
+import 'features/legal/presentation/views/disclaimer_view.dart';
 
 /// Observer global de navegación. Permite que pantallas como Home se
 /// enteren cuando vuelven a quedar visibles tras un pop (por ejemplo, al
@@ -35,15 +32,6 @@ final AppSettingsController appSettings = AppSettingsController();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicializa el motor de flutter_gemma ANTES de setupServiceLocator(),
-  // ya que GemmaFlutterTutorDatasource depende de que esto se haya
-  // ejecutado para poder descargar/activar el modelo local.
-  FlutterGemma.initialize(
-    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
-    maxDownloadRetries: 10,
-  );
-
   setupServiceLocator();
   await appSettings.load();
   runApp(const TintaApp());
@@ -51,18 +39,12 @@ Future<void> main() async {
 
 /// Se llama tras login o registro exitoso. Ya no pasa por ninguna
 /// encuesta intermedia (se quitó la de Knowledge Base) — va directo a
-/// Home siempre. Aprovecha para disparar el precargado de Gemma en
-/// background, sin bloquear la navegación.
+/// Home siempre.
 Future<void> _afterAuthSuccess(
     BuildContext ctx, {
       bool isNewAccount = false,
     }) async {
   if (!ctx.mounted) return;
-
-  sl<TutorLlmDatasource>().ensureModelReady().catchError((e) {
-    debugPrint('Preload de Gemma falló: $e');
-  });
-
   Navigator.pushReplacementNamed(ctx, '/home');
 }
 
@@ -85,15 +67,17 @@ class _SplashGateState extends State<_SplashGate> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkSession());
   }
 
-  void _preloadTutorModel() {
-    sl<TutorLlmDatasource>().ensureModelReady().catchError((e) {
-      debugPrint(
-        'Preload de Gemma falló (se reintentará al abrir el chat): $e',
-      );
-    });
-  }
-
   Future<void> _checkSession() async {
+    // Primero, el disclaimer legal — se pregunta UNA sola vez por
+    // dispositivo, antes que cualquier otra cosa (incluso antes de
+    // saber si hay sesión guardada).
+    final accepted = await DisclaimerService.hasAccepted();
+    if (!accepted) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/disclaimer');
+      return;
+    }
+
     final session = await SessionStorage.load();
 
     if (session == null) {
@@ -116,8 +100,6 @@ class _SplashGateState extends State<_SplashGate> {
       if (userId == null) throw Exception('Perfil no disponible');
 
       if (!mounted) return;
-
-      _preloadTutorModel();
       Navigator.pushReplacementNamed(context, '/home');
     } catch (_) {
       // El token guardado ya no sirve (expiró o fue revocado):
@@ -145,7 +127,6 @@ class TintaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<UserViewModel>(create: (_) => sl<UserViewModel>()),
-        ChangeNotifierProvider<ClubsViewModel>(create: (_) => sl<ClubsViewModel>()),
         ChangeNotifierProvider<AppSettingsController>.value(value: appSettings),
       ],
       child: Builder(
@@ -194,6 +175,12 @@ class TintaApp extends StatelessWidget {
                 initialRoute: '/splash',
                 routes: {
                   '/splash': (_) => const _SplashGate(),
+                  '/disclaimer': (_) => Builder(
+                    builder: (ctx) => DisclaimerView(
+                      onAccepted: () =>
+                          Navigator.pushReplacementNamed(ctx, '/splash'),
+                    ),
+                  ),
                   '/login': (_) => ChangeNotifierProvider<AuthViewModel>(
                     create: (_) => sl<AuthViewModel>(),
                     child: Builder(
