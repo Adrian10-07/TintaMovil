@@ -42,7 +42,7 @@ dependencies:
   url_launcher: ^6.3.1
   epub_view: ^3.2.0
   path_provider: ^2.1.4
-
+  audioplayers: ^6.1.0
   # Selector de archivos nativo (para que el usuario elija el PDF a subir).
   file_picker: ^8.1.2
   flutter_pdfview: ^1.3.2
@@ -68,6 +68,11 @@ dependencies:
   # Tutor AI — detección de conectividad para el modo híbrido
   # (remoto con RAG si hay internet, local con Gemma si no).
   connectivity_plus: ^6.0.0
+
+  # TTS: Text-to-Speech nativo del sistema (Android/iOS).
+  # Permite leer en voz alta las respuestas del tutor y guardarlas
+  # como archivos .wav para escucha offline.
+  flutter_tts: ^4.2.0
 
 dev_dependencies:
   flutter_test:

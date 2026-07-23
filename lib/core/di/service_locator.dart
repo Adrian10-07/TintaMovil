@@ -26,6 +26,13 @@ import '../../features/reader/data/repositories/reader_repository_impl.dart';
 import '../../features/reader/domain/repositories/reader_repository.dart';
 import '../../features/reader/presentation/viewmodels/reader_viewmodel.dart';
 
+// Tutor AI — TTS (Text-to-Speech)
+import '../../features/tutorAI/data/datasources/tts_service.dart';
+
+// Premium / Suscripciones
+import '../../features/premium/data/datasources/premium_remote_datasource.dart';
+import '../../features/premium/presentation/viewmodels/premium_viewmodel.dart';
+
 // Tutor AI — local (Gemma)
 import '../../features/tutorAI/data/datasources/gemma_flutter_tutor_datasource.dart';
 import '../../features/tutorAI/data/datasources/tutor_llm_datasource.dart';
@@ -127,6 +134,9 @@ void setupServiceLocator() {
         () => ReaderViewModel(sl()),
   );
 
+  // ── PREMIUM / SUSCRIPCIONES ──────────────────────────────────────────
+  registerPremium();
+
   // ── CLUBS ─────────────────────────────────────────────────────────────
   registerClubs();
 
@@ -135,6 +145,16 @@ void setupServiceLocator() {
 
   // ── TUTOR AI ────────────────────────────────────────────────────────────
   registerTutorAi();
+}
+
+void registerPremium() {
+  sl.registerLazySingleton<PremiumRemoteDatasource>(
+        () => PremiumRemoteDatasource(sl()),
+  );
+
+  sl.registerLazySingleton<PremiumViewModel>(
+        () => PremiumViewModel(sl()),
+  );
 }
 
 void registerClubs() {
@@ -196,6 +216,10 @@ void registerKnowledgeBase() {
 }
 
 void registerTutorAi() {
+  // ── TTS (Text-to-Speech) ─────────────────────────────────────
+  // Singleton compartido entre el chat local y el remoto.
+  sl.registerLazySingleton<TtsService>(() => TtsService());
+
   // Datasource activo del tutor local: Gemma 3 1B vía flutter_gemma.
   // MockTutorDatasource se usa solo si _useMockLlmForEmulator = true
   // (por ejemplo en emulador x86_64, donde flutter_gemma no corre).

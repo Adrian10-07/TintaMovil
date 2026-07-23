@@ -7,6 +7,7 @@ import '../../data/datasources/remote_tutor_datasource.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/tutor_source.dart';
 import '../components/sources_footer.dart';
+import '../components/tts_message_actions.dart';
 import '../viewmodels/remote_tutor_chat_viewmodel.dart';
 
 class RemoteTutorChatSheet extends StatelessWidget {
@@ -337,6 +338,11 @@ class _MessagesListState extends State<_MessagesList> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _MessageBubble(message: msg),
+              // Acciones TTS: Escuchar y Guardar audio.
+              if (msg.isAssistant &&
+                  !msg.isStreaming &&
+                  msg.content.isNotEmpty)
+                TtsMessageActions(message: msg),
               if (sources.isNotEmpty && !msg.isStreaming)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
