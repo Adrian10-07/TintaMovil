@@ -99,6 +99,36 @@
       "subjects": ["Mystery", "Fiction"],
       "pageUrl": "https://standardebooks.org/ebooks/arthur-conan-doyle/the-adventures-of-sherlock-holmes",
       "epubUrl": "https://standardebooks.org/ebooks/arthur-conan-doyle/the-adventures-of-sherlock-holmes/downloads/arthur-conan-doyle_the-adventures-of-sherlock-holmes.epub"
+    },
+    {
+      "id": "charles-babbage_passages-from-the-life-of-a-philosopher",
+      "title": "Passages from the Life of a Philosopher",
+      "authors": ["Charles Babbage"],
+      "description": "The autobiography of the inventor of the Difference Engine and Analytical Engine, precursors to the modern computer, including his explanations of the thinking behind his computing machines.",
+      "category": "Estudio",
+      "subjects": ["Autobiography", "Mathematics", "Computing"],
+      "pageUrl": "https://standardebooks.org/ebooks/charles-babbage/passages-from-the-life-of-a-philosopher",
+      "epubUrl": "https://standardebooks.org/ebooks/charles-babbage/passages-from-the-life-of-a-philosopher/downloads/charles-babbage_passages-from-the-life-of-a-philosopher.epub"
+    },
+    {
+      "id": "d-s-halacy_computers-the-machines-we-think-with",
+      "title": "Computers—the Machines We Think With",
+      "authors": ["D. S. Halacy"],
+      "description": "A 1962 popular-science book explaining how electronic computers work and their emerging applications in banking, industry, and scientific research, tracing the history and evolution of computing machines.",
+      "category": "Estudio",
+      "subjects": ["Computers", "Electronic data processing", "Technology"],
+      "pageUrl": "https://www.gutenberg.org/ebooks/72572",
+      "epubUrl": "https://www.gutenberg.org/ebooks/72572.epub.noimages"
+    },
+    {
+      "id": "ida-m-tarbell_the-history-of-the-standard-oil-company",
+      "title": "The History of the Standard Oil Company",
+      "authors": ["Ida M. Tarbell"],
+      "description": "A landmark 1904 investigative exposé of John D. Rockefeller's Standard Oil Company and the rise of the American petroleum industry, credited with helping bring about the company's eventual breakup.",
+      "category": "Estudio",
+      "subjects": ["Petroleum industry and trade", "History", "Business"],
+      "pageUrl": "https://www.gutenberg.org/ebooks/60692",
+      "epubUrl": "https://www.gutenberg.org/ebooks/60692.epub.noimages"
     }
   ]
 }
