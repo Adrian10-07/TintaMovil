@@ -13,17 +13,21 @@ import '../viewmodels/tutor_chat_viewmodel.dart';
 class TutorChatSheet extends StatelessWidget {
   final String? documentContext;
   final String? pdfFilePath; // ← NUEVO
+  final List<String>? epubChapterHtmlContents; // ← NUEVO, para libros EPUB
+
 
   const TutorChatSheet({
     super.key,
     this.documentContext,
-    this.pdfFilePath, // ← NUEVO
+    this.pdfFilePath,
+    this.epubChapterHtmlContents, // ← NUEVO
   });
 
   static Future<void> show(
       BuildContext context, {
         String? documentContext,
-        String? pdfFilePath, // ← NUEVO
+        String? pdfFilePath,
+        List<String>? epubChapterHtmlContents, // ← NUEVO
       }) {
     return showModalBottomSheet(
       context: context,
@@ -36,7 +40,6 @@ class TutorChatSheet extends StatelessWidget {
       ),
       builder: (sheetContext) {
         return Padding(
-          // Keyboard-avoiding, ya aplicado antes.
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
           ),
@@ -48,7 +51,8 @@ class TutorChatSheet extends StatelessWidget {
             builder: (_, scrollController) {
               return TutorChatSheet(
                 documentContext: documentContext,
-                pdfFilePath: pdfFilePath, // ← NUEVO
+                pdfFilePath: pdfFilePath,
+                epubChapterHtmlContents: epubChapterHtmlContents, // ← NUEVO
               );
             },
           ),
@@ -65,10 +69,14 @@ class TutorChatSheet extends StatelessWidget {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       vm.setContext(documentContext);
-      // NUEVO: si hay un PDF asociado, indexarlo en memoria (TF-IDF).
-      // Si ya fue indexado antes en esta sesión, no repite el trabajo.
       if (pdfFilePath != null) {
         vm.indexCurrentDocument(pdfFilePath!);
+      } else if (epubChapterHtmlContents != null &&
+          epubChapterHtmlContents!.isNotEmpty) {
+        vm.indexCurrentDocumentFromEpub(
+          bookTitle: documentContext ?? 'libro',
+          chapterHtmlContents: epubChapterHtmlContents!,
+        );
       }
       vm.initializeModel();
     });

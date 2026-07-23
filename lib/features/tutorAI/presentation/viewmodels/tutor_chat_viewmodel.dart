@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../data/services/in_memory_rag_service.dart';
+import '../../../knowledge_base/data/services/pdf_text_extractor.dart' show PageText;
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/model_download_status.dart';
 import '../../domain/repositories/tutor_repository.dart';
@@ -100,15 +101,26 @@ class TutorChatViewModel extends ChangeNotifier {
   /// Indexa el PDF actual en memoria (extracción + chunking + TF-IDF),
   /// sin tocar SQLite. Seguro de llamar varias veces: si el documento ya
   /// fue indexado en esta sesión, no repite el trabajo.
+  /// Indexa el PDF actual en memoria (extracción + chunking + TF-IDF),
+  /// sin tocar SQLite. Si el documento es DISTINTO al que estaba activo,
+  /// limpia el historial de mensajes — evita que el LLM mezcle contexto
+  /// de conversaciones sobre libros distintos.
   Future<void> indexCurrentDocument(String filePath) async {
     if (_isIndexing) return;
+
+    final hash = await InMemoryRagService.computeFileHash(filePath);
+
+    // Documento distinto al que estaba activo → conversación nueva.
+    if (_activeDocumentHash != null && _activeDocumentHash != hash) {
+      _messages.clear();
+      _isDocumentIndexed = false;
+    }
 
     _isIndexing = true;
     notifyListeners();
 
     try {
       _documentFilePath = filePath;
-      final hash = await InMemoryRagService.computeFileHash(filePath);
       _activeDocumentHash = hash;
 
       final chunks = await _ragService.ensureIndexed(
@@ -119,6 +131,52 @@ class TutorChatViewModel extends ChangeNotifier {
       _isDocumentIndexed = chunks.isNotEmpty;
     } catch (e) {
       _error = 'Error al indexar documento: $e';
+      _isDocumentIndexed = false;
+    } finally {
+      _isIndexing = false;
+      notifyListeners();
+    }
+  }
+
+  /// Igual que [indexCurrentDocument], pero para EPUB.
+  Future<void> indexCurrentDocumentFromEpub({
+    required String bookTitle,
+    required List<String> chapterHtmlContents,
+  }) async {
+    if (_isIndexing) return;
+
+    final hash = InMemoryRagService.computeTextHash(
+      '$bookTitle-${chapterHtmlContents.length}',
+    );
+
+    // Documento distinto al que estaba activo → conversación nueva.
+    if (_activeDocumentHash != null && _activeDocumentHash != hash) {
+      _messages.clear();
+      _isDocumentIndexed = false;
+    }
+
+    _isIndexing = true;
+    notifyListeners();
+
+    try {
+      _activeDocumentHash = hash;
+
+      final pages = <PageText>[];
+      for (var i = 0; i < chapterHtmlContents.length; i++) {
+        final plainText = InMemoryRagService.stripHtml(chapterHtmlContents[i]);
+        if (plainText.isNotEmpty) {
+          pages.add(PageText(pageNumber: i + 1, text: plainText));
+        }
+      }
+
+      final chunks = await _ragService.ensureIndexedFromPages(
+        pages: pages,
+        documentHash: hash,
+      );
+
+      _isDocumentIndexed = chunks.isNotEmpty;
+    } catch (e) {
+      _error = 'Error al indexar el libro: $e';
       _isDocumentIndexed = false;
     } finally {
       _isIndexing = false;

@@ -240,6 +240,10 @@ class _PdfResultsViewState extends State<PdfResultsView> {
         context,
         documentContext: _fileName,
         remoteDocumentId: doc.id,
+        onSwitchToOffline: () {
+          Navigator.of(context).pop(); // cierra el sheet remoto
+          _openLocalTutorChatFlow(); // abre el local con el mismo PDF
+        },
       );
       return;
     }
