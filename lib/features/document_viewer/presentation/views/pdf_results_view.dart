@@ -1,17 +1,36 @@
+import 'dart:async';
 import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 
-import '../../../recommendations/data/datasources/recommendation_remote_datasource.dart';
-import '../../../recommendations/domain/entities/recommendation.dart';
-import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
 import 'package:tinta/core/di/service_locator.dart';
 import 'package:tinta/core/network/http_client.dart';
+import 'package:tinta/core/network/connectivity_checker.dart';
+
+import '../../../recommendations/data/datasources/recommendation_remote_datasource.dart';
+import '../../../recommendations/domain/entities/recommendation.dart';
+import '../../../tutorAI/data/datasources/remote_tutor_datasource.dart';
+import '../../../tutorAI/domain/entities/remote_document.dart';
+import '../../../tutorAI/domain/repositories/document_registry.dart';
+import '../../../tutorAI/presentation/components/document_indexing_screen.dart';
+import '../../../tutorAI/presentation/views/remote_tutor_chat_sheet.dart';
+import '../../../tutorAI/presentation/views/tutor_chat_sheet.dart';
+
+// ── NUEVO (de Gael): racha, logros y documentos recientes ────────────
+import '../../../home/data/services/streak_service.dart';
+import '../../../achievements/data/services/achievement_service.dart';
+import '../../../recommendations/data/services/recent_documents_service.dart';
+import '../../../user/presentation/viewmodels/user_viewmodel.dart';
+
+final _connectivityChecker = ConnectivityChecker();
 
 /// Vista del visor de documentos (feature: document_viewer).
 ///
 /// Muestra un PDF a pantalla completa con:
-///   - Botón ✨ en el AppBar → abre el chat con Tinta AI (modo documento).
+///   - Botón ✨ en el AppBar → abre el chat con Tinta AI en modo híbrido
+///     (remoto con RAG si hay internet, local con Gemma si no).
 ///   - FAB → abre el panel de recomendaciones relacionadas.
 class PdfResultsView extends StatefulWidget {
   final File pdfFile;
@@ -23,47 +42,260 @@ class PdfResultsView extends StatefulWidget {
 }
 
 class _PdfResultsViewState extends State<PdfResultsView> {
-  // ── Paleta Tinta ──────────────────────────────────────────────
-  static const _mintPrimary = Color(0xFF3DBF7A);
-  static const _deepGreen = Color(0xFF1A4D2E);
-  static const _warmGold = Color(0xFFF5C842);
-  static const _peach = Color(0xFFFFBF9B);
-  static const _darkText = Color(0xFF1A2B1F);
-
   final _dataSource = RecommendationRemoteDataSource(sl<ApiClient>());
 
+  // ── Recomendaciones (feature existente, sin cambios) ──────
   List<Recommendation>? _items;
-  String? _error;
+  String? _recommendationsError;
+
+  // ── Tutor IA remoto ────────────────────────────────────────
+  RemoteDocument? _remoteDocument;
+  String? _tutorError;
+  Timer? _pollingTimer;
+  bool _uploadInProgress = false;
 
   @override
   void initState() {
     super.initState();
     _loadRecommendations();
+    _initializeTutorForDocument();
+    _registerReadingActivity();
   }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  String get _fileName =>
+      widget.pdfFile.path.split(RegExp(r'[/\\]')).last;
+
+  // ══════════════════════════════════════════════════════════════════
+  // RACHA / LOGROS / DOCUMENTOS RECIENTES (de Gael)
+  // ══════════════════════════════════════════════════════════════════
+
+  /// El visor de PDF también cuenta como "leer" para la racha — antes
+  /// solo se contaba con abrir sesión, ahora se cuenta al entrar de
+  /// verdad a un documento (EPUB o PDF).
+  Future<void> _registerReadingActivity() async {
+    final userVm = sl<UserViewModel>();
+    if (userVm.profile == null) {
+      await userVm.loadProfile();
+    }
+    final userId = userVm.profile?.id;
+    if (userId == null) return;
+
+    await StreakService.registerVisit(userId);
+
+    final uploads = await RecentDocumentsService.getAll(userId);
+    await AchievementService.checkUploads(userId, uploads.length);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // RECOMENDACIONES (existente)
+  // ══════════════════════════════════════════════════════════════════
 
   Future<void> _loadRecommendations() async {
     try {
       final result = await _dataSource.fetchRecommendations();
       if (mounted) setState(() => _items = result);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _recommendationsError = e.toString());
     }
   }
 
-  /// Nombre del archivo sin la ruta, para pasarlo al tutor como contexto.
-  String get _fileName =>
-      widget.pdfFile.path.split('/').last.split('\\').last;
+  // ══════════════════════════════════════════════════════════════════
+  // TUTOR IA — subida proactiva al backend
+  // ══════════════════════════════════════════════════════════════════
 
-  void _openTutorChat() {
+  Future<void> _initializeTutorForDocument() async {
+    try {
+      // 1. Hash del PDF para identificarlo unívocamente
+      final hash = await _computeSha256(widget.pdfFile);
+      final registry = sl<DocumentRegistry>();
+      final existingId = await registry.getDocumentIdByHash(hash);
+
+      if (existingId != null) {
+        // Ya lo subimos en una sesión anterior; consultar estado
+        await _refreshRemoteDocument(existingId);
+        _startPollingIfNeeded();
+        return;
+      }
+
+      // 2. Subir por primera vez (background, no bloquea la UI)
+      await _uploadDocument(hash);
+    } catch (e) {
+      if (mounted) setState(() => _tutorError = e.toString());
+    }
+  }
+
+  Future<void> _uploadDocument(String hash) async {
+    if (_uploadInProgress) return;
+    _uploadInProgress = true;
+
+    try {
+      final datasource = sl<RemoteTutorDatasource>();
+      final registry = sl<DocumentRegistry>();
+
+      final doc = await datasource.uploadDocument(widget.pdfFile);
+      await registry.saveMapping(
+        hash: hash,
+        documentId: doc.id,
+        filename: _fileName,
+      );
+
+      if (mounted) setState(() => _remoteDocument = doc);
+      _startPollingIfNeeded();
+    } catch (e) {
+      if (mounted) setState(() => _tutorError = e.toString());
+    } finally {
+      _uploadInProgress = false;
+    }
+  }
+
+  Future<void> _refreshRemoteDocument(String documentId) async {
+    try {
+      final datasource = sl<RemoteTutorDatasource>();
+      final doc = await datasource.getDocumentStatus(documentId);
+      if (mounted) {
+        setState(() {
+          _remoteDocument = doc;
+          _tutorError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _tutorError = e.toString());
+    }
+  }
+
+  void _startPollingIfNeeded() {
+    _pollingTimer?.cancel();
+    final doc = _remoteDocument;
+    if (doc == null || doc.status.isTerminal) return;
+
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      await _refreshRemoteDocument(doc.id);
+      final updated = _remoteDocument;
+      if (updated == null || updated.status.isTerminal) {
+        timer.cancel();
+      }
+    });
+  }
+
+  Future<String> _computeSha256(File file) async {
+    // Streaming hash: no cargamos el PDF entero a memoria
+    final stream = file.openRead();
+    final digest = await stream.transform(sha256).single;
+    return digest.toString();
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // UI — Tutor híbrido
+  // ══════════════════════════════════════════════════════════════════
+
+  void _openTutorChat() async {
+    // Mostrar feedback inmediato mientras se verifica conectividad, para que
+    // el usuario no sienta que el botón no respondió (la verificación puede
+    // tardar hasta 2 segundos si no hay red).
+    _showLoadingSnackbar('Abriendo tutor…');
+
+    final hasInternet = await _connectivityChecker.hasInternet();
+
+    if (!mounted) return;
+
+    if (hasInternet) {
+      _openRemoteTutorChatFlow();
+    } else {
+      _openLocalTutorChatFlow();
+    }
+  }
+
+  void _openLocalTutorChatFlow() {
     TutorChatSheet.show(
       context,
       documentContext: _fileName,
     );
   }
 
+  void _openRemoteTutorChatFlow() {
+    final doc = _remoteDocument;
+
+    // Sin documento subido aún (o falló la subida) → cae a local en vez de
+    // dejar al usuario esperando indefinidamente. Es preferible una
+    // respuesta sin RAG del documento a no responder nada.
+    if (doc == null) {
+      _openLocalTutorChatFlow();
+      return;
+    }
+
+    if (doc.isReady) {
+      RemoteTutorChatSheet.show(
+        context,
+        documentContext: _fileName,
+        remoteDocumentId: doc.id,
+      );
+      return;
+    }
+
+    // Documento aún procesando o falló → sheet de espera (ya existente).
+    _showIndexingSheet(doc);
+  }
+
+  void _showLoadingSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showIndexingSheet(RemoteDocument doc) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetCtx) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        minChildSize: 0.4,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (_, __) => _IndexingSheetHost(
+          initialDoc: doc,
+          onReady: (readyDoc) {
+            Navigator.of(sheetCtx).pop();
+            RemoteTutorChatSheet.show(
+              context,
+              documentContext: _fileName,
+              remoteDocumentId: readyDoc.id,
+            );
+          },
+          onRetryUpload: () async {
+            Navigator.of(sheetCtx).pop();
+            final hash = await _computeSha256(widget.pdfFile);
+            final registry = sl<DocumentRegistry>();
+            await registry.removeByHash(hash);
+            setState(() => _remoteDocument = null);
+            await _uploadDocument(hash);
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final count = _items?.length;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -76,7 +308,6 @@ class _PdfResultsViewState extends State<PdfResultsView> {
           ),
         ],
       ),
-      // ── El PDF ocupa toda la pantalla ──────────────────────────
       body: PDFView(
         filePath: widget.pdfFile.path,
         enableSwipe: true,
@@ -84,14 +315,13 @@ class _PdfResultsViewState extends State<PdfResultsView> {
         autoSpacing: true,
         pageFling: true,
       ),
-      // ── Botón flotante para abrir el panel de recomendaciones ──
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openRecommendationsSheet(context),
-        backgroundColor: _mintPrimary,
-        icon: const Icon(Icons.menu_book_rounded, color: Colors.white),
+        backgroundColor: cs.primary,
+        icon: Icon(Icons.menu_book_rounded, color: cs.onPrimary),
         label: Text(
           count == null ? 'Te puede interesar' : 'Te puede interesar ($count)',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -111,13 +341,8 @@ class _PdfResultsViewState extends State<PdfResultsView> {
           builder: (_, scrollController) {
             return _RecommendationsSheetContent(
               items: _items,
-              error: _error,
+              error: _recommendationsError,
               scrollController: scrollController,
-              mintPrimary: _mintPrimary,
-              deepGreen: _deepGreen,
-              warmGold: _warmGold,
-              peach: _peach,
-              darkText: _darkText,
             );
           },
         );
@@ -126,29 +351,96 @@ class _PdfResultsViewState extends State<PdfResultsView> {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// Sheet de espera con polling interno
+// ══════════════════════════════════════════════════════════════════════
+
+class _IndexingSheetHost extends StatefulWidget {
+  final RemoteDocument initialDoc;
+  final void Function(RemoteDocument ready) onReady;
+  final VoidCallback onRetryUpload;
+
+  const _IndexingSheetHost({
+    required this.initialDoc,
+    required this.onReady,
+    required this.onRetryUpload,
+  });
+
+  @override
+  State<_IndexingSheetHost> createState() => _IndexingSheetHostState();
+}
+
+class _IndexingSheetHostState extends State<_IndexingSheetHost> {
+  late RemoteDocument _doc;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _doc = widget.initialDoc;
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    if (_doc.status.isTerminal) return;
+    _timer = Timer.periodic(const Duration(seconds: 3), (t) async {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      try {
+        final updated =
+        await sl<RemoteTutorDatasource>().getDocumentStatus(_doc.id);
+        if (!mounted) return;
+        setState(() => _doc = updated);
+        if (updated.isReady) {
+          t.cancel();
+          widget.onReady(updated);
+        } else if (updated.isFailed) {
+          t.cancel();
+        }
+      } catch (_) {
+        // Errores transitorios: seguimos intentando
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DocumentIndexingScreen(
+      document: _doc,
+      onCancel: () => Navigator.of(context).pop(),
+      onRetry: widget.onRetryUpload,
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Recomendaciones (existente, sin cambios)
+// ══════════════════════════════════════════════════════════════════════
+
 class _RecommendationsSheetContent extends StatelessWidget {
   final List<Recommendation>? items;
   final String? error;
   final ScrollController scrollController;
-  final Color mintPrimary;
-  final Color deepGreen;
-  final Color warmGold;
-  final Color peach;
-  final Color darkText;
 
   const _RecommendationsSheetContent({
     required this.items,
     required this.error,
     required this.scrollController,
-    required this.mintPrimary,
-    required this.deepGreen,
-    required this.warmGold,
-    required this.peach,
-    required this.darkText,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -156,11 +448,9 @@ class _RecommendationsSheetContent extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
           child: Text(
             'Te puede interesar',
-            style: TextStyle(
-              fontFamily: 'PlusJakartaSans',
+            style: tt.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
-              fontSize: 17,
-              color: deepGreen,
+              color: cs.primary,
             ),
           ),
         ),
@@ -171,39 +461,40 @@ class _RecommendationsSheetContent extends StatelessWidget {
   }
 
   Widget _buildBody(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     if (error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Error: $error',
-              style: TextStyle(color: darkText.withOpacity(0.6))),
+          child: Text(
+            'Error: $error',
+            style: TextStyle(color: cs.onSurfaceVariant),
+          ),
         ),
       );
     }
     if (items == null) {
-      return Center(child: CircularProgressIndicator(color: mintPrimary));
+      return Center(child: CircularProgressIndicator(color: cs.primary));
     }
     if (items!.isEmpty) {
-      // Mensaje amigable: no es un error, es que no se encontraron
-      // coincidencias para el tema de este libro en particular.
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.auto_stories_outlined,
-                  color: mintPrimary.withOpacity(0.6), size: 40),
+              Icon(
+                Icons.auto_stories_outlined,
+                color: cs.primary.withOpacity(0.6),
+                size: 40,
+              ),
               const SizedBox(height: 12),
               Text(
                 'No encontramos recomendaciones para este libro.\n'
                     'Prueba subiendo otro con un tema distinto.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'DMSans',
-                  fontSize: 13.5,
-                  color: darkText.withOpacity(0.55),
-                ),
+                style: TextStyle(color: cs.onSurfaceVariant),
               ),
             ],
           ),
@@ -217,14 +508,7 @@ class _RecommendationsSheetContent extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (_, i) {
         final r = items![i];
-        return _SheetRecommendationTile(
-          recommendation: r,
-          mintPrimary: mintPrimary,
-          deepGreen: deepGreen,
-          warmGold: warmGold,
-          peach: peach,
-          darkText: darkText,
-        );
+        return _SheetRecommendationTile(recommendation: r);
       },
     );
   }
@@ -232,36 +516,26 @@ class _RecommendationsSheetContent extends StatelessWidget {
 
 class _SheetRecommendationTile extends StatelessWidget {
   final Recommendation recommendation;
-  final Color mintPrimary;
-  final Color deepGreen;
-  final Color warmGold;
-  final Color peach;
-  final Color darkText;
 
-  const _SheetRecommendationTile({
-    required this.recommendation,
-    required this.mintPrimary,
-    required this.deepGreen,
-    required this.warmGold,
-    required this.peach,
-    required this.darkText,
-  });
+  const _SheetRecommendationTile({required this.recommendation});
 
-  Color get _matchColor {
+  Color _matchColor(ColorScheme cs) {
     final p = recommendation.matchPercent;
-    if (p >= 70) return mintPrimary;
-    if (p >= 40) return warmGold;
-    return peach;
+    if (p >= 70) return cs.primary;
+    if (p >= 40) return cs.tertiary;
+    return cs.secondary;
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final r = recommendation;
+    final matchColor = _matchColor(cs);
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: darkText.withOpacity(0.03),
+        color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -277,15 +551,21 @@ class _SheetRecommendationTile extends StatelessWidget {
                 r.thumbnailUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
-                  color: mintPrimary.withOpacity(0.15),
-                  child: Icon(Icons.menu_book_rounded,
-                      color: mintPrimary, size: 20),
+                  color: cs.primaryContainer,
+                  child: Icon(
+                    Icons.menu_book_rounded,
+                    color: cs.onPrimaryContainer,
+                    size: 20,
+                  ),
                 ),
               )
                   : Container(
-                color: mintPrimary.withOpacity(0.15),
-                child: Icon(Icons.menu_book_rounded,
-                    color: mintPrimary, size: 20),
+                color: cs.primaryContainer,
+                child: Icon(
+                  Icons.menu_book_rounded,
+                  color: cs.onPrimaryContainer,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -303,28 +583,28 @@ class _SheetRecommendationTile extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
                           fontWeight: FontWeight.w700,
                           fontSize: 13.5,
-                          color: deepGreen,
+                          color: cs.onSurface,
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: _matchColor.withOpacity(0.15),
+                        color: matchColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         '${r.matchPercent}%',
                         style: TextStyle(
-                          fontFamily: 'DMSans',
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
-                          color: _matchColor,
+                          color: matchColor,
                         ),
                       ),
                     ),
@@ -336,9 +616,8 @@ class _SheetRecommendationTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontFamily: 'DMSans',
                     fontSize: 11.5,
-                    color: darkText.withOpacity(0.5),
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
                 if (r.matchReason != null) ...[
@@ -348,10 +627,9 @@ class _SheetRecommendationTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: 'DMSans',
                       fontSize: 10.5,
                       fontStyle: FontStyle.italic,
-                      color: deepGreen.withOpacity(0.6),
+                      color: cs.primary.withOpacity(0.7),
                     ),
                   ),
                 ],

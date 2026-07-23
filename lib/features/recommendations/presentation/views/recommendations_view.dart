@@ -5,11 +5,17 @@ import 'package:tinta/core/network/http_client.dart';
 
 import '../../data/datasources/recommendation_remote_datasource.dart';
 import '../../domain/entities/recommendation.dart';
+import 'recommendation_web_view.dart';
+import '../../../home/domain/repositories/book_repository.dart';
+import '../../../home/domain/entities/book.dart';
 
 /// Vista de recomendaciones: tarjetas con portada, título, autores,
 /// porcentaje de afinidad y el "por qué" de cada recomendación.
 class RecommendationsView extends StatefulWidget {
-  const RecommendationsView({Key? key}) : super(key: key);
+  /// Cuando es true, se usa como pestaña dentro de MainTabShell.
+  final bool embedded;
+
+  const RecommendationsView({Key? key, this.embedded = false}) : super(key: key);
 
   @override
   State<RecommendationsView> createState() => _RecommendationsViewState();
@@ -25,9 +31,15 @@ class _RecommendationsViewState extends State<RecommendationsView> {
   static const _darkText = Color(0xFF1A2B1F);
 
   final _dataSource = RecommendationRemoteDataSource(sl<ApiClient>());
+  final _bookRepository = sl<BookRepository>();
+
+  bool _searchingFor;
+  String? _searchingTitle;
 
   List<Recommendation>? _items;
   String? _error;
+
+  _RecommendationsViewState() : _searchingFor = false;
 
   @override
   void initState() {
@@ -48,11 +60,106 @@ class _RecommendationsViewState extends State<RecommendationsView> {
     }
   }
 
+  /// Al tocar una recomendación: primero intenta encontrar un EPUB real
+  /// de ese libro en Gutendex (Project Gutenberg) buscando por título y
+  /// autor, y si lo encuentra abre el lector de la app directamente. Solo
+  /// si no hay ningún EPUB disponible, cae al link externo o al panel de
+  /// descripción como respaldo.
+  Future<void> _onRecommendationTap(Recommendation r) async {
+    setState(() {
+      _searchingFor = true;
+      _searchingTitle = r.title;
+    });
+
+    Book? found;
+    try {
+      final query = r.authors.isNotEmpty ? '${r.title} ${r.authors.first}' : r.title;
+      final page = await _bookRepository.searchBooks(query);
+      found = _bestMatch(page.books, r);
+    } catch (_) {
+      found = null;
+    } finally {
+      if (mounted) setState(() => _searchingFor = false);
+    }
+
+    if (!mounted) return;
+
+    if (found != null) {
+      Navigator.pushNamed(context, '/reader', arguments: found);
+      return;
+    }
+
+    // No hay EPUB legible de este libro en Gutendex — respaldo.
+    if (r.infoLink != null && r.infoLink!.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RecommendationWebView(url: r.infoLink!, title: r.title),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _RecommendationDetailSheet(
+        recommendation: r,
+        mintPrimary: _mintPrimary,
+        deepGreen: _deepGreen,
+        darkText: _darkText,
+      ),
+    );
+  }
+
+  /// De los resultados de búsqueda, elige el que más se parece al título
+  /// de la recomendación (coincidencia simple por texto, insensible a
+  /// mayúsculas). Si ninguno se parece razonablemente, regresa null en
+  /// vez de abrir un libro equivocado.
+  Book? _bestMatch(List<Book> candidates, Recommendation r) {
+    if (candidates.isEmpty) return null;
+
+    final targetTitle = r.title.toLowerCase().trim();
+    for (final b in candidates) {
+      final candidateTitle = b.title.toLowerCase().trim();
+      if (candidateTitle == targetTitle ||
+          candidateTitle.contains(targetTitle) ||
+          targetTitle.contains(candidateTitle)) {
+        return b;
+      }
+    }
+    return null;
+  }
+
+  void _showAffinityInfo() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Qué es la afinidad?'),
+        content: const Text(
+          'Es qué tan parecido es este libro al contenido de los documentos '
+              'que has subido y analizado. Lo calcula nuestro motor de '
+              'recomendaciones comparando temas y palabras clave — mientras '
+              'más alto el porcentaje, más se relaciona con lo que ya leíste '
+              'o estudiaste.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _offWhite,
       appBar: AppBar(
+        automaticallyImplyLeading: !widget.embedded,
         backgroundColor: _offWhite,
         elevation: 0,
         foregroundColor: _deepGreen,
@@ -64,8 +171,49 @@ class _RecommendationsViewState extends State<RecommendationsView> {
             color: _deepGreen,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline_rounded),
+            tooltip: '¿Qué es la afinidad?',
+            onPressed: _showAffinityInfo,
+          ),
+        ],
       ),
-      body: _buildBody(),
+      body: Stack(
+        children: [
+          _buildBody(),
+          if (_searchingFor)
+            Container(
+              color: Colors.black.withOpacity(0.35),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: _mintPrimary),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Buscando "${_searchingTitle ?? ''}"…',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'DMSans',
+                          fontSize: 13,
+                          color: _darkText.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -107,10 +255,17 @@ class _RecommendationsViewState extends State<RecommendationsView> {
       onRefresh: _load,
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
-        itemCount: _items!.length,
+        itemCount: _items!.length + 1,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (_, i) {
-          final r = _items![i];
+          if (i == 0) {
+            return _AffinityExplainer(
+              mintPrimary: _mintPrimary,
+              deepGreen: _deepGreen,
+              onTap: _showAffinityInfo,
+            );
+          }
+          final r = _items![i - 1];
           return _RecommendationCard(
             recommendation: r,
             mintPrimary: _mintPrimary,
@@ -118,8 +273,55 @@ class _RecommendationsViewState extends State<RecommendationsView> {
             warmGold: _warmGold,
             peach: _peach,
             darkText: _darkText,
+            onTap: () => _onRecommendationTap(r),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Franja pequeña que explica de una vez qué significa el % en las
+/// tarjetas de abajo, para no depender de que el usuario descubra el
+/// ícono de info en el AppBar.
+class _AffinityExplainer extends StatelessWidget {
+  final Color mintPrimary;
+  final Color deepGreen;
+  final VoidCallback onTap;
+
+  const _AffinityExplainer({
+    required this.mintPrimary,
+    required this.deepGreen,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: mintPrimary.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline_rounded, size: 16, color: mintPrimary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'El % indica qué tan afín es cada libro a lo que ya leíste. Toca uno para ver más.',
+                style: TextStyle(
+                  fontFamily: 'DMSans',
+                  fontSize: 11.5,
+                  color: deepGreen,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -132,6 +334,7 @@ class _RecommendationCard extends StatelessWidget {
   final Color warmGold;
   final Color peach;
   final Color darkText;
+  final VoidCallback onTap;
 
   const _RecommendationCard({
     required this.recommendation,
@@ -140,6 +343,7 @@ class _RecommendationCard extends StatelessWidget {
     required this.warmGold,
     required this.peach,
     required this.darkText,
+    required this.onTap,
   });
 
   Color get _matchColor {
@@ -153,102 +357,209 @@ class _RecommendationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = recommendation;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: darkText.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Portada ──────────────────────────────────────────
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 56,
-              height: 80,
-              child: r.thumbnailUrl != null
-                  ? Image.network(
-                r.thumbnailUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _CoverPlaceholder(
-                  color: mintPrimary,
-                ),
-              )
-                  : _CoverPlaceholder(color: mintPrimary),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: darkText.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
-          ),
-          const SizedBox(width: 14),
-
-          // ── Info ─────────────────────────────────────────────
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 56,
+                height: 80,
+                child: r.thumbnailUrl != null
+                    ? Image.network(
+                  r.thumbnailUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _CoverPlaceholder(
+                    color: mintPrimary,
+                  ),
+                )
+                    : _CoverPlaceholder(color: mintPrimary),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          r.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14.5,
+                            color: deepGreen,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _MatchBadge(percent: r.matchPercent, color: _matchColor),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    r.authors.join(', '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'DMSans',
+                      fontSize: 12.5,
+                      color: darkText.withOpacity(0.55),
+                    ),
+                  ),
+                  if (r.matchReason != null) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: mintPrimary.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       child: Text(
-                        r.title,
-                        maxLines: 2,
+                        r.matchReason!,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontFamily: 'PlusJakartaSans',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14.5,
+                          fontFamily: 'DMSans',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                           color: deepGreen,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    _MatchBadge(percent: r.matchPercent, color: _matchColor),
                   ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  r.authors.join(', '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'DMSans',
-                    fontSize: 12.5,
-                    color: darkText.withOpacity(0.55),
-                  ),
-                ),
-                if (r.matchReason != null) ...[
                   const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: mintPrimary.withOpacity(0.10),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      r.matchReason!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'DMSans',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: deepGreen,
+                  Row(
+                    children: [
+                      Icon(Icons.chevron_right_rounded,
+                          size: 14, color: darkText.withOpacity(0.35)),
+                      Text(
+                        'Toca para ver más',
+                        style: TextStyle(
+                          fontFamily: 'DMSans',
+                          fontSize: 10.5,
+                          color: darkText.withOpacity(0.35),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
-              ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Panel que se muestra cuando la recomendación no trae un link externo
+/// al que navegar — da al menos la descripción y el motivo del match.
+class _RecommendationDetailSheet extends StatelessWidget {
+  final Recommendation recommendation;
+  final Color mintPrimary;
+  final Color deepGreen;
+  final Color darkText;
+
+  const _RecommendationDetailSheet({
+    required this.recommendation,
+    required this.mintPrimary,
+    required this.deepGreen,
+    required this.darkText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final r = recommendation;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 8,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 56,
+                  height: 80,
+                  child: r.thumbnailUrl != null
+                      ? Image.network(r.thumbnailUrl!, fit: BoxFit.cover)
+                      : _CoverPlaceholder(color: mintPrimary),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(r.title,
+                        style: TextStyle(
+                            fontFamily: 'PlusJakartaSans',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: deepGreen)),
+                    const SizedBox(height: 4),
+                    Text(r.authors.join(', '),
+                        style: TextStyle(
+                            fontFamily: 'DMSans',
+                            fontSize: 13,
+                            color: darkText.withOpacity(0.6))),
+                  ],
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 16),
+          if (r.description != null && r.description!.isNotEmpty)
+            Text(
+              r.description!,
+              style: TextStyle(
+                fontFamily: 'DMSans',
+                fontSize: 13.5,
+                height: 1.5,
+                color: darkText.withOpacity(0.75),
+              ),
+            )
+          else
+            Text(
+              'No hay más información disponible para este libro por ahora.',
+              style: TextStyle(
+                fontFamily: 'DMSans',
+                fontSize: 13.5,
+                color: darkText.withOpacity(0.5),
+              ),
+            ),
         ],
       ),
     );

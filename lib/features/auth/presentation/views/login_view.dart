@@ -23,14 +23,15 @@ class _LoginViewState extends State<LoginView> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  // ── Paleta Tinta ──────────────────────────────────────────────
+  // ── Paleta Tinta (versión negra) ─────────────────────────────
   static const _mintPrimary   = Color(0xFF3DBF7A);
-  static const _deepGreen     = Color(0xFF1A4D2E);
-  static const _pistachioLight= Color(0xFFC8EDD8);
   static const _warmGold      = Color(0xFFF5C842);
   static const _peach         = Color(0xFFFFBF9B);
-  static const _offWhite      = Color(0xFFF2F5EF);
-  static const _darkText      = Color(0xFF1A2B1F);
+  static const _pureBlack     = Color(0xFF000000);
+  static const _cardBlack     = Color(0xFF121212);
+  static const _fieldBlack    = Color(0xFF1C1C1E);
+  static const _lightText     = Color(0xFFE8EAE6);
+  static const _mutedText     = Color(0xFF9AA0A6);
 
   @override
   void initState() {
@@ -61,24 +62,24 @@ class _LoginViewState extends State<LoginView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _offWhite,
+      backgroundColor: _pureBlack,
       body: Stack(
         children: [
-          // ── Blobs decorativos de fondo ───────────────────────
+          // ── Blobs decorativos de fondo (más tenues sobre negro) ──
           Positioned(
             top: -80,
             right: -60,
-            child: _Blob(color: _mintPrimary.withOpacity(0.18), size: 260),
+            child: _Blob(color: _mintPrimary.withOpacity(0.14), size: 260),
           ),
           Positioned(
             bottom: -100,
             left: -80,
-            child: _Blob(color: _warmGold.withOpacity(0.15), size: 300),
+            child: _Blob(color: _warmGold.withOpacity(0.10), size: 300),
           ),
           Positioned(
             top: 200,
             left: -40,
-            child: _Blob(color: _peach.withOpacity(0.12), size: 180),
+            child: _Blob(color: _peach.withOpacity(0.08), size: 180),
           ),
 
           // ── Grilla de puntos sutil ───────────────────────────
@@ -97,18 +98,25 @@ class _LoginViewState extends State<LoginView> {
                   children: [
                     const SizedBox(height: 48),
 
-                    // Logo / wordmark
+                    // Logo / wordmark — usa el ícono real de la app
                     Row(
                       children: [
                         Container(
                           width: 42,
                           height: 42,
+                          clipBehavior: Clip.antiAlias,
                           decoration: BoxDecoration(
-                            color: _mintPrimary,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.auto_stories_rounded,
-                              color: Colors.white, size: 22),
+                          child: Image.asset(
+                            'assets/icon/icon.png',
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: _mintPrimary,
+                              child: const Icon(Icons.auto_stories_rounded,
+                                  color: Colors.white, size: 22),
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -117,7 +125,7 @@ class _LoginViewState extends State<LoginView> {
                             fontFamily: 'PlusJakartaSans',
                             fontWeight: FontWeight.w800,
                             fontSize: 28,
-                            color: _deepGreen,
+                            color: _lightText,
                             letterSpacing: -0.5,
                           ),
                         ),
@@ -134,7 +142,7 @@ class _LoginViewState extends State<LoginView> {
                         fontWeight: FontWeight.w800,
                         fontSize: 36,
                         height: 1.15,
-                        color: _darkText,
+                        color: _lightText,
                         letterSpacing: -0.8,
                       ),
                     ),
@@ -144,14 +152,14 @@ class _LoginViewState extends State<LoginView> {
                       style: TextStyle(
                         fontFamily: 'DMSans',
                         fontSize: 15,
-                        color: _darkText.withOpacity(0.55),
+                        color: _mutedText,
                       ),
                     ),
 
                     const SizedBox(height: 40),
 
-                    // ── Tarjeta neumórfica ───────────────────────
-                    _NeumorphicCard(
+                    // ── Tarjeta ───────────────────────────────────
+                    _DarkCard(
                       child: Column(
                         children: [
                           // Campo email
@@ -176,7 +184,7 @@ class _LoginViewState extends State<LoginView> {
                                 _obscurePassword
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
-                                color: _darkText.withOpacity(0.4),
+                                color: _mutedText,
                                 size: 20,
                               ),
                               onPressed: () => setState(
@@ -270,19 +278,19 @@ class _LoginViewState extends State<LoginView> {
                       children: [
                         Expanded(
                             child: Divider(
-                                color: _darkText.withOpacity(0.12),
+                                color: _lightText.withOpacity(0.12),
                                 thickness: 1)),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           child: Text('o',
                               style: TextStyle(
                                   fontFamily: 'DMSans',
-                                  color: _darkText.withOpacity(0.35),
+                                  color: _mutedText,
                                   fontSize: 13)),
                         ),
                         Expanded(
                             child: Divider(
-                                color: _darkText.withOpacity(0.12),
+                                color: _lightText.withOpacity(0.12),
                                 thickness: 1)),
                       ],
                     ),
@@ -303,12 +311,12 @@ class _LoginViewState extends State<LoginView> {
                             fontFamily: 'DMSans',
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
-                            color: _darkText,
+                            color: _lightText,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(
-                              color: _darkText.withOpacity(0.15), width: 1.5),
+                              color: _lightText.withOpacity(0.15), width: 1.5),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16)),
                         ),
@@ -327,7 +335,7 @@ class _LoginViewState extends State<LoginView> {
                             style: TextStyle(
                               fontFamily: 'DMSans',
                               fontSize: 14,
-                              color: _darkText.withOpacity(0.55),
+                              color: _mutedText,
                             ),
                           ),
                           GestureDetector(
@@ -385,7 +393,7 @@ class _DotGridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const spacing = 28.0;
     final paint = Paint()
-      ..color = const Color(0xFF1A2B1F).withOpacity(0.055)
+      ..color = const Color(0xFFE8EAE6).withOpacity(0.045)
       ..strokeCap = StrokeCap.round;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
@@ -398,29 +406,21 @@ class _DotGridPainter extends CustomPainter {
   bool shouldRepaint(_DotGridPainter old) => false;
 }
 
-class _NeumorphicCard extends StatelessWidget {
+/// Tarjeta oscura (reemplaza la neumórfica clara — esas sombras solo se
+/// ven bien sobre fondo claro; sobre negro se usa un borde sutil en vez
+/// de sombras dobles).
+class _DarkCard extends StatelessWidget {
   final Widget child;
-  const _NeumorphicCard({required this.child});
+  const _DarkCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F5EF),
+        color: const Color(0xFF121212),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.white.withOpacity(0.9),
-            offset: const Offset(-6, -6),
-            blurRadius: 12,
-          ),
-          BoxShadow(
-            color: const Color(0xFF1A2B1F).withOpacity(0.10),
-            offset: const Offset(6, 6),
-            blurRadius: 14,
-          ),
-        ],
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       child: child,
     );
@@ -456,20 +456,19 @@ class _TintaField extends StatelessWidget {
       style: const TextStyle(
         fontFamily: 'DMSans',
         fontSize: 15,
-        color: Color(0xFF1A2B1F),
+        color: Color(0xFFE8EAE6),
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(
+        labelStyle: const TextStyle(
           fontFamily: 'DMSans',
           fontSize: 14,
-          color: const Color(0xFF1A2B1F).withOpacity(0.45),
+          color: Color(0xFF9AA0A6),
         ),
-        prefixIcon: Icon(icon,
-            size: 20, color: const Color(0xFF1A2B1F).withOpacity(0.4)),
+        prefixIcon: Icon(icon, size: 20, color: const Color(0xFF9AA0A6)),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: const Color(0xFFECF0E9),
+        fillColor: const Color(0xFF1C1C1E),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,

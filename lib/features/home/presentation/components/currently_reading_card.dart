@@ -3,15 +3,17 @@ import 'currently_reading_book.dart';
 
 /// Card grande de "Currently Reading": fondo de color sólido con blobs
 /// decorativos sutiles, ícono temático arriba, título/autor abajo, y
-/// una barra de progreso con porcentaje + páginas.
+/// el número de páginas del libro.
 class CurrentlyReadingCard extends StatelessWidget {
   final CurrentlyReadingBook book;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const CurrentlyReadingCard({
     Key? key,
     required this.book,
     this.onTap,
+    this.onLongPress,
   }) : super(key: key);
 
   @override
@@ -19,6 +21,7 @@ class CurrentlyReadingCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         width: 168,
         height: 190,
@@ -29,7 +32,6 @@ class CurrentlyReadingCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // Blob decorativo sutil, igual al estilo TintaBackground
             Positioned(
               top: -30,
               right: -30,
@@ -57,23 +59,12 @@ class CurrentlyReadingCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: book.progress,
-                    minHeight: 5,
-                    backgroundColor: Colors.white.withOpacity(0.25),
-                    valueColor:
-                    const AlwaysStoppedAnimation(Colors.white),
-                  ),
-                ),
                 const SizedBox(height: 6),
                 Text(
-                  '${book.percent}% · ${book.totalPages} páginas',
+                  '${book.totalPages} páginas',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.85),
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

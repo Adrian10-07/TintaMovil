@@ -8,9 +8,14 @@ import '../../../home/domain/entities/book.dart';
 class ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Book book;
   final EpubController? controller;
+  final List<Widget>? actions;
 
-  const ReaderAppBar({Key? key, required this.book, required this.controller})
-      : super(key: key);
+  const ReaderAppBar({
+    Key? key,
+    required this.book,
+    required this.controller,
+    this.actions,
+  }) : super(key: key);
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + 8);
@@ -21,6 +26,7 @@ class ReaderAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       titleSpacing: 0,
+      actions: actions,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
