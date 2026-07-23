@@ -8,20 +8,22 @@ import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/model_download_status.dart';
 import 'tutor_llm_datasource.dart';
 
-/// Datasource que ejecuta Gemma 3 1B on-device usando `flutter_gemma`
-/// (MediaPipe / LiteRT-LM).
+/// Datasource que ejecuta Gemma 3 1B on-device usando `flutter_gemma`.
+
+/// La descarga se dispara UNA vez, en background, apenas arranca la app
+/// para que la UI pueda mostrar "265 MB / 529 MB" tanto en el Home como
 class GemmaFlutterTutorDatasource implements TutorLlmDatasource {
-  // URL del modelo Gemma 3 1B en formato .task (MediaPipe), ~530 MB.
-  // Ver https://huggingface.co/litert-community/Gemma3-1B-IT
   static const String _modelUrl =
       'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task';
   static const String _modelName = 'gemma3-1b-it-int4.task';
 
-  /// Token de HuggingFace para descargar modelos "gated". Se inyecta desde
-  /// afuera (ver README de integración) usando --dart-define-from-file para
-  /// no comprometer el secreto en el repositorio.
-  final String huggingFaceToken;
+  /// Tamaño real del archivo .task, confirmado por descarga previa
+  /// (554,661,243 bytes ≈ 529 MB). Se usa como referencia fija para
+  /// calcular bytes descargados a partir del porcentaje que reporta
+  /// flutter_gemma, ya que la librería solo expone 0-100%, no bytes.
+  static const int _knownTotalBytes = 554661243;
 
+  final String huggingFaceToken;
   static const int _maxTokens = 512;
 
   final StreamController<ModelDownloadStatus> _statusController =
@@ -37,6 +39,19 @@ class GemmaFlutterTutorDatasource implements TutorLlmDatasource {
   @override
   Stream<ModelDownloadStatus> get statusStream => _statusController.stream;
 
+  /// Estado actual, para que un widget que se monta DESPUÉS de que la
+  /// descarga ya empezó (por ejemplo el chat, si el usuario lo abre a
+  /// mitad de la descarga en background) pueda pintar el estado correcto
+  /// de inmediato en vez de esperar el próximo evento del stream.
+  ModelDownloadStatus _lastStatus =
+  const ModelDownloadStatus(stage: ModelDownloadStage.idle);
+  ModelDownloadStatus get lastStatus => _lastStatus;
+
+  void _emit(ModelDownloadStatus status) {
+    _lastStatus = status;
+    _statusController.add(status);
+  }
+
   @override
   Future<void> ensureModelReady() async {
     if (_isReady) return;
@@ -44,56 +59,43 @@ class GemmaFlutterTutorDatasource implements TutorLlmDatasource {
     _isInitializing = true;
 
     try {
-      _statusController.add(
-        const ModelDownloadStatus(stage: ModelDownloadStage.checking),
-      );
+      _emit(const ModelDownloadStatus(stage: ModelDownloadStage.checking));
 
-      final alreadyInstalled =
-      await FlutterGemma.isModelInstalled(_modelName);
+      final alreadyInstalled = await FlutterGemma.isModelInstalled(_modelName);
 
       if (!alreadyInstalled) {
-        _statusController.add(
-          const ModelDownloadStatus(stage: ModelDownloadStage.downloading),
-        );
+        _emit(const ModelDownloadStatus(stage: ModelDownloadStage.downloading));
 
-        // Descarga automática desde HuggingFace. El paquete reintenta solo
-        // (maxDownloadRetries configurado en FlutterGemma.initialize() en
-        // main.dart) y usa foreground service en Android para archivos
-        // >500MB, evitando el límite de 9 min en background.
         await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
             .fromNetwork(_modelUrl, token: huggingFaceToken)
-            .withProgress((progress) {
-          _statusController.add(
-            ModelDownloadStatus(
-              stage: ModelDownloadStage.downloading,
-              bytesDownloaded: progress,
-              totalBytes: 100,
-            ),
-          );
+            .withProgress((percent) {
+          // flutter_gemma solo reporta 0-100. Lo convertimos a bytes
+          // reales usando el tamaño conocido del archivo, para que la
+          // UI pueda mostrar "265 MB / 529 MB" en vez de solo "50%".
+          final bytesDownloaded =
+          ((percent / 100) * _knownTotalBytes).round();
+          _emit(ModelDownloadStatus(
+            stage: ModelDownloadStage.downloading,
+            bytesDownloaded: bytesDownloaded,
+            totalBytes: _knownTotalBytes,
+          ));
         }).install();
       }
 
-      _statusController.add(
-        const ModelDownloadStatus(stage: ModelDownloadStage.loading),
-      );
+      _emit(const ModelDownloadStatus(stage: ModelDownloadStage.loading));
 
-      // CPU por defecto: más compatible en gama baja que forzar GPU.
       _model = await FlutterGemma.getActiveModel(
         maxTokens: _maxTokens,
         preferredBackend: PreferredBackend.cpu,
       );
 
       _isReady = true;
-      _statusController.add(
-        const ModelDownloadStatus(stage: ModelDownloadStage.ready),
-      );
+      _emit(const ModelDownloadStatus(stage: ModelDownloadStage.ready));
     } catch (e) {
-      _statusController.add(
-        ModelDownloadStatus(
-          stage: ModelDownloadStage.failed,
-          errorMessage: e.toString(),
-        ),
-      );
+      _emit(ModelDownloadStatus(
+        stage: ModelDownloadStage.failed,
+        errorMessage: e.toString(),
+      ));
       rethrow;
     } finally {
       _isInitializing = false;
@@ -109,11 +111,6 @@ class GemmaFlutterTutorDatasource implements TutorLlmDatasource {
       throw StateError('Modelo no listo.');
     }
 
-    // Sesión NUEVA en cada turno. No reutilizamos la sesión anterior:
-    // en pruebas se observó un crash nativo (SIGSEGV en CopyCache /
-    // CloneContext dentro de libllm_inference_engine_jni.so) al reutilizar
-    // contexto tras un turno anterior. Cerrar y recrear es más lento
-    // (se reprocesa el historial acotado) pero mucho más estable.
     await _chat?.session.close();
     _chat = await _model!.createChat(systemInstruction: systemPrompt);
 
@@ -124,12 +121,6 @@ class GemmaFlutterTutorDatasource implements TutorLlmDatasource {
       );
     }
 
-    // ── Guardia anti-repetición ─────────────────────────────────────
-    // Gemma 3 1B cuantizado puede degenerar en loops (mismo token
-    // repetido) en generaciones largas. Cortamos dejando de escuchar el
-    // stream (`break`) en vez de llamar a stopGeneration(): esa llamada
-    // nativa parece dejar el KV-cache en estado inconsistente y provocó
-    // un crash SIGSEGV en el siguiente turno durante pruebas.
     String? lastToken;
     int repeatCount = 0;
     const maxRepeats = 15;
@@ -138,9 +129,7 @@ class GemmaFlutterTutorDatasource implements TutorLlmDatasource {
       if (response is TextResponse) {
         if (response.token == lastToken) {
           repeatCount++;
-          if (repeatCount >= maxRepeats) {
-            break;
-          }
+          if (repeatCount >= maxRepeats) break;
         } else {
           repeatCount = 0;
           lastToken = response.token;
@@ -157,9 +146,7 @@ class GemmaFlutterTutorDatasource implements TutorLlmDatasource {
     await _model?.close();
     _model = null;
     _isReady = false;
-    _statusController.add(
-      const ModelDownloadStatus(stage: ModelDownloadStage.idle),
-    );
+    _emit(const ModelDownloadStatus(stage: ModelDownloadStage.idle));
   }
 
   @override

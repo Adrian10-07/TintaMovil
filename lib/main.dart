@@ -23,6 +23,8 @@ import 'core/settings/app_settings_controller.dart';
 
 // ── NUEVO: inicialización del motor Gemma on-device ─────────────────────
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
+import 'features/tutorAI/data/datasources/tutor_llm_datasource.dart';
+import 'core/network/http_client.dart';
 
 /// Observer global de navegación. Permite que pantallas como Home se
 /// enteren cuando vuelven a quedar visibles tras un pop (por ejemplo, al
@@ -84,9 +86,25 @@ Future<void> _afterAuthSuccess(
   if (!ctx.mounted) return;
 
   if (alreadyCompleted) {
+    sl<TutorLlmDatasource>()
+        .ensureModelReady()
+        .catchError((e) {
+      debugPrint('Preload de Gemma falló: $e');
+    });
+
     Navigator.pushReplacementNamed(ctx, '/home');
   } else {
-    Navigator.pushReplacementNamed(ctx, '/kb-survey', arguments: userId);
+    sl<TutorLlmDatasource>()
+        .ensureModelReady()
+        .catchError((e) {
+      debugPrint('Preload de Gemma falló: $e');
+    });
+
+    Navigator.pushReplacementNamed(
+      ctx,
+      '/kb-survey',
+      arguments: userId,
+    );
   }
 }
 
@@ -107,6 +125,16 @@ class _SplashGateState extends State<_SplashGate> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkSession());
+  }
+
+  void _preloadTutorModel() {
+    sl<TutorLlmDatasource>()
+        .ensureModelReady()
+        .catchError((e) {
+      debugPrint(
+        'Preload de Gemma falló (se reintentará al abrir el chat): $e',
+      );
+    });
   }
 
   Future<void> _checkSession() async {
@@ -139,9 +167,14 @@ class _SplashGateState extends State<_SplashGate> {
       await KnowledgeBasePrefs.isSurveyCompleted(userId);
 
       if (alreadyCompleted) {
+        _preloadTutorModel();
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        Navigator.pushReplacementNamed(context, '/kb-survey', arguments: userId);
+        _preloadTutorModel();
+        Navigator.pushReplacementNamed(
+            context, '/kb-survey',
+          arguments: userId,
+        );
       }
     } catch (_) {
       // El token guardado ya no sirve (expiró o fue revocado):

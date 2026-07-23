@@ -14,17 +14,14 @@ import '../../../notifications/presentation/views/notifications_view.dart';
 import '../../../../features/user/presentation/viewmodels/user_viewmodel.dart';
 import '../components/currently_reading_book.dart';
 import '../components/currently_reading_section.dart';
-import '../../../../features/clubs/presentation/views/clubs_list_view.dart';
 import '../../../../main.dart' show appRouteObserver;
 import '../../../../core/presentation/utils/page_transitions.dart';
+import '../../../tutorAI/presentation/components/tutor_model_download_banner.dart';
 
 class HomeView extends StatefulWidget {
   final HomeViewModel viewModel;
   final String defaultQuery;
 
-  /// Cuando es true, esta vista se está usando como pestaña dentro de
-  /// [MainTabShell]: no dibuja su propio Scaffold ni barra inferior (esas
-  /// las pone el shell), y no maneja su propia navegación de pestañas.
   final bool embedded;
 
   const HomeView({
@@ -210,6 +207,7 @@ class _HomeViewState extends State<HomeView> with RouteAware {
               hasNotifications: widget.viewModel.hasUnreadNotifications,
               onNotificationTap: _onNotificationTap,
             ),
+            const TutorModelDownloadBanner(),
             Expanded(
               child: ListenableBuilder(
                 listenable: widget.viewModel,
