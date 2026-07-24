@@ -40,6 +40,7 @@ import '../../features/tutorAI/data/repositories/tutor_repository_impl.dart';
 import '../../features/tutorAI/domain/repositories/tutor_repository.dart';
 import '../../features/tutorAI/presentation/viewmodels/tutor_chat_viewmodel.dart';
 import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
+import '../../features/tutorAI/data/services/model_download_service.dart';
 import '../../features/tutorAI/data/services/in_memory_rag_service.dart';
 
 // Tutor AI — remoto (RAG en Railway)
@@ -227,6 +228,11 @@ void registerTutorAi() {
         : GemmaFlutterTutorDatasource(
       huggingFaceToken: _huggingFaceToken,
     ),
+  );
+
+  // Servicio de descarga (bridge al datasource para la UI).
+  sl.registerLazySingleton<ModelDownloadService>(
+        () => ModelDownloadService(sl<TutorLlmDatasource>()),
   );
 
   sl.registerLazySingleton<TutorRepository>(

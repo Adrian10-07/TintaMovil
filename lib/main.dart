@@ -17,20 +17,23 @@ import 'features/home/presentation/views/book_detail_view.dart';
 import 'features/reader/presentation/views/reader_view.dart';
 import 'core/presentation/views/main_tab_shell.dart';
 import 'core/settings/app_settings_controller.dart';
+import 'features/legal/data/services/disclaimer_service.dart';
+import 'features/legal/presentation/views/disclaimer_view.dart';
 
-// ?? Inicializaci�n del motor Gemma on-device ?????????????????????????
+// ── Inicialización del motor Gemma on-device ─────────────────────────
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'features/tutorAI/data/datasources/tutor_llm_datasource.dart';
+import 'features/tutorAI/data/services/model_download_service.dart';
 
-/// Observer global de navegaci�n. Permite que pantallas como Home se
+/// Observer global de navegación. Permite que pantallas como Home se
 /// enteren cuando vuelven a quedar visibles tras un pop (por ejemplo, al
-/// regresar de leer un libro), sin importar cu�ntas rutas intermedias se
+/// regresar de leer un libro), sin importar cuántas rutas intermedias se
 /// hayan apilado encima.
 final RouteObserver<PageRoute> appRouteObserver = RouteObserver<PageRoute>();
 
-/// Controlador global de apariencia (tema + tama�o de texto). Se carga
+/// Controlador global de apariencia (tema + tamaño de texto). Se carga
 /// una sola vez antes de arrancar la app para que no haya parpadeo entre
-/// el tema por defecto y el que el usuario hab�a elegido.
+/// el tema por defecto y el que el usuario había elegido.
 final AppSettingsController appSettings = AppSettingsController();
 
 Future<void> main() async {
@@ -50,27 +53,28 @@ Future<void> main() async {
 }
 
 /// Se llama tras login o registro exitoso. Ya no pasa por ninguna
-/// encuesta intermedia (se quit� la de Knowledge Base) ? va directo a
+/// encuesta intermedia (se quitó la de Knowledge Base) — va directo a
 /// Home siempre. Aprovecha para disparar el precargado de Gemma en
-/// background, sin bloquear la navegaci�n.
+/// background, sin bloquear la navegación.
 Future<void> _afterAuthSuccess(
     BuildContext ctx, {
       bool isNewAccount = false,
     }) async {
   if (!ctx.mounted) return;
 
-  sl<TutorLlmDatasource>().ensureModelReady().catchError((e) {
-    debugPrint('Preload de Gemma fall�: $e');
+  sl<ModelDownloadService>().restoreState().then((_) {
+    sl<ModelDownloadService>().startDownload();
   });
 
   Navigator.pushReplacementNamed(ctx, '/home');
 }
 
 /// Primera pantalla que se muestra al abrir la app.
-/// Revisa si hay una sesi�n guardada:
-///   - Si hay tokens guardados y el perfil carga bien ? entra directo a
+/// Revisa primero el disclaimer legal (una sola vez por dispositivo) y
+/// luego si hay una sesión guardada:
+///   - Si hay tokens guardados y el perfil carga bien → entra directo a
 ///     Home (sin pedir login otra vez).
-///   - Si no hay sesi�n, o los tokens ya expiraron ? manda a /login.
+///   - Si no hay sesión, o los tokens ya expiraron → manda a /login.
 class _SplashGate extends StatefulWidget {
   const _SplashGate();
 
@@ -86,14 +90,23 @@ class _SplashGateState extends State<_SplashGate> {
   }
 
   void _preloadTutorModel() {
-    sl<TutorLlmDatasource>().ensureModelReady().catchError((e) {
-      debugPrint(
-        'Preload de Gemma fall� (se reintentar� al abrir el chat): $e',
-      );
+    final downloadService = sl<ModelDownloadService>();
+    downloadService.restoreState().then((_) {
+      downloadService.startDownload();
     });
   }
 
   Future<void> _checkSession() async {
+    // Primero, el disclaimer legal — se pregunta UNA sola vez por
+    // dispositivo, antes que cualquier otra cosa (incluso antes de
+    // saber si hay sesión guardada).
+    final accepted = await DisclaimerService.hasAccepted();
+    if (!accepted) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/disclaimer');
+      return;
+    }
+
     final session = await SessionStorage.load();
 
     if (session == null) {
@@ -120,8 +133,8 @@ class _SplashGateState extends State<_SplashGate> {
       _preloadTutorModel();
       Navigator.pushReplacementNamed(context, '/home');
     } catch (_) {
-      // El token guardado ya no sirve (expir� o fue revocado):
-      // limpiamos la sesi�n y regresamos a login.
+      // El token guardado ya no sirve (expiró o fue revocado):
+      // limpiamos la sesión y regresamos a login.
       await SessionStorage.clear();
       sl<ApiClient>().clearTokens();
       if (!mounted) return;
@@ -176,11 +189,11 @@ class TintaApp extends StatelessWidget {
                 debugShowCheckedModeBanner: false,
                 navigatorObservers: [appRouteObserver],
                 theme: selectedTheme,
-                // Selecci�n expl�cita del usuario, no depende del tema
-                // del sistema ? por eso theme==darkTheme siempre.
+                // Selección explícita del usuario, no depende del tema
+                // del sistema — por eso theme==darkTheme siempre.
                 darkTheme: selectedTheme,
                 themeMode: ThemeMode.light,
-                // Aplica el tama�o de texto elegido en Apariencia a TODA
+                // Aplica el tamaño de texto elegido en Apariencia a TODA
                 // la app, sin tener que tocar cada widget de texto.
                 builder: (context, child) {
                   final mediaQuery = MediaQuery.of(context);
@@ -194,6 +207,12 @@ class TintaApp extends StatelessWidget {
                 initialRoute: '/splash',
                 routes: {
                   '/splash': (_) => const _SplashGate(),
+                  '/disclaimer': (_) => Builder(
+                    builder: (ctx) => DisclaimerView(
+                      onAccepted: () =>
+                          Navigator.pushReplacementNamed(ctx, '/splash'),
+                    ),
+                  ),
                   '/login': (_) => ChangeNotifierProvider<AuthViewModel>(
                     create: (_) => sl<AuthViewModel>(),
                     child: Builder(
