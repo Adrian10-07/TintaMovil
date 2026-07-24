@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class BookCard extends StatelessWidget {
   final dynamic book;
@@ -117,28 +118,21 @@ class _BookThumbnail extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: thumbnailUrl != null
-          ? Image.network(
-        thumbnailUrl!,
+          ? CachedNetworkImage(
+        imageUrl: thumbnailUrl!,
         width: 64,
         height: 96,
         fit: BoxFit.cover,
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
+        placeholder: (context, url) {
           return SizedBox(
             width: 64,
             height: 96,
             child: Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                value: progress.expectedTotalBytes != null
-                    ? progress.cumulativeBytesLoaded /
-                    progress.expectedTotalBytes!
-                    : null,
-              ),
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
           );
         },
-        errorBuilder: (_, __, ___) =>
+        errorWidget: (_, __, ___) =>
             _BookPlaceholder(colorScheme: colorScheme),
       )
           : _BookPlaceholder(colorScheme: colorScheme),

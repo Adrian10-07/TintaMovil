@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 
 import 'package:tinta/core/di/service_locator.dart';
@@ -300,11 +301,6 @@ class _PdfResultsViewState extends State<PdfResultsView> {
 
     return Scaffold(
       appBar: AppBar(
-        // Botón explícito de regreso: siempre vuelve a Home, sin
-        // importar cómo se llegó a esta pantalla (push normal,
-        // pushReplacement desde el análisis de subida, o si por algún
-        // bug quedaran varias copias apiladas). Reemplaza toda la pila
-        // de navegación en vez de solo hacer pop().
         leading: IconButton(
           tooltip: 'Volver al inicio',
           icon: const Icon(Icons.arrow_back_rounded),
@@ -563,10 +559,10 @@ class _SheetRecommendationTile extends StatelessWidget {
               width: 46,
               height: 64,
               child: r.thumbnailUrl != null
-                  ? Image.network(
-                r.thumbnailUrl!,
+                  ? CachedNetworkImage(
+                imageUrl: r.thumbnailUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorWidget: (_, __, ___) => Container(
                   color: cs.primaryContainer,
                   child: Icon(
                     Icons.menu_book_rounded,

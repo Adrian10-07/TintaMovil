@@ -88,7 +88,6 @@ class _AssistantBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Si está streaming y aún no hay texto, mostrar typing dots.
             if (message.isStreaming && message.content.isEmpty)
               const _TypingDots()
             else
@@ -216,15 +215,12 @@ class _TypingDotsState extends State<_TypingDots>
               final opacity = (0.3 + (t * 0.7)).clamp(0.3, 1.0);
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Opacity(
-                  opacity: opacity,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: cs.onSurfaceVariant,
-                      shape: BoxShape.circle,
-                    ),
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: cs.onSurfaceVariant.withOpacity(opacity),
+                    shape: BoxShape.circle,
                   ),
                 ),
               );

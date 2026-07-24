@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:tinta/core/ui/theme3material/theme.dart';
 import '../../domain/entities/book.dart';
 import '../../../../core/presentation/components/tinta_background.dart';
@@ -164,10 +165,10 @@ class _BookCover extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: book.thumbnailUrl != null
-                  ? Image.network(
-                book.thumbnailUrl!,
+                  ? CachedNetworkImage(
+                imageUrl: book.thumbnailUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _CoverPlaceholder(title: book.title),
+                errorWidget: (_, __, ___) => _CoverPlaceholder(title: book.title),
               )
                   : _CoverPlaceholder(title: book.title),
             ),

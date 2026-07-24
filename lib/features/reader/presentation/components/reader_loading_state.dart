@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../home/domain/entities/book.dart';
 
 /// Pantalla de carga mientras se descarga el EPUB.
@@ -19,12 +20,12 @@ class ReaderLoadingState extends StatelessWidget {
           if (book.thumbnailUrl != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                book.thumbnailUrl!,
+              child: CachedNetworkImage(
+                imageUrl: book.thumbnailUrl!,
                 width: 120,
                 height: 170,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _PlaceholderCover(
+                errorWidget: (_, __, ___) => _PlaceholderCover(
                   title: book.title,
                   colorScheme: colorScheme,
                 ),

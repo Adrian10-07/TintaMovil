@@ -31,8 +31,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   http: ^1.6.0
   get_it: ^9.2.1
@@ -43,30 +41,19 @@ dependencies:
   epub_view: ^3.2.0
   path_provider: ^2.1.4
 
-  # Selector de archivos nativo (para que el usuario elija el PDF a subir).
+  # Caché de imágenes de red (portadas de libros, avatares) — evita que
+  # se re-descarguen en cada rebuild/scroll, que era una causa real de
+  # jank en el catálogo y en recomendaciones.
+  cached_network_image: ^3.4.1
+
   file_picker: ^8.1.2
   flutter_pdfview: ^1.3.2
-
-  # LLM on-device: llama_cpp_dart (chat con Qwen, feature de Gael) y
-  # flutter_gemma (tutor híbrido con Gemma 3 1B, feature de Patrón).
-  # Son motores de inferencia distintos para features distintas; no
-  # deberían chocar en tiempo de ejecución, pero verificar que el build
-  # con ambos activos compile bien (llama_cpp_dart requiere NDK/CMake).
-  #llama_cpp_dart: ^0.9.0-dev.8
   flutter_gemma: ^0.16.5
-
-  # Knowledge Base (RAG offline)
   syncfusion_flutter_pdf: ^27.1.58
   sqflite: ^2.4.1
   crypto: ^3.0.6
-
-  # Persistencia local simple (selección de bases de conocimiento, flags,
-  # sesión, y mapeo de documentos del tutor remoto/local).
   shared_preferences: ^2.3.2
   flutter_secure_storage: ^10.3.1
-
-  # Tutor AI — detección de conectividad para el modo híbrido
-  # (remoto con RAG si hay internet, local con Gemma si no).
   connectivity_plus: ^6.0.0
 
 dev_dependencies:

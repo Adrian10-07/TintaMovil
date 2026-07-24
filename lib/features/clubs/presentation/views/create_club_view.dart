@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../../home/domain/entities/book.dart';
@@ -149,12 +150,12 @@ class _CreateClubViewState extends State<CreateClubView> {
                           if (_selectedBook!.thumbnailUrl != null)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(6),
-                              child: Image.network(
-                                _selectedBook!.thumbnailUrl!,
+                              child: CachedNetworkImage(
+                                imageUrl: _selectedBook!.thumbnailUrl!,
                                 width: 40,
                                 height: 56,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
+                                errorWidget: (_, __, ___) =>
                                 const Icon(Icons.book_rounded),
                               ),
                             )
@@ -378,11 +379,11 @@ class _BookPickerSheetState extends State<_BookPickerSheet> {
                     leading: book.thumbnailUrl != null
                         ? ClipRRect(
                       borderRadius: BorderRadius.circular(4),
-                      child: Image.network(
-                        book.thumbnailUrl!,
+                      child: CachedNetworkImage(
+                        imageUrl: book.thumbnailUrl!,
                         width: 36, height: 50,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
+                        errorWidget: (_, __, ___) =>
                         const Icon(Icons.book_rounded),
                       ),
                     )

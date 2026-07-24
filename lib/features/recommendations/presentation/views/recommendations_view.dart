@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:tinta/core/di/service_locator.dart';
 import 'package:tinta/core/network/http_client.dart';
@@ -382,10 +383,10 @@ class _RecommendationCard extends StatelessWidget {
                 width: 56,
                 height: 80,
                 child: r.thumbnailUrl != null
-                    ? Image.network(
-                  r.thumbnailUrl!,
+                    ? CachedNetworkImage(
+                  imageUrl: r.thumbnailUrl!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _CoverPlaceholder(
+                  errorWidget: (_, __, ___) => _CoverPlaceholder(
                     color: mintPrimary,
                   ),
                 )
@@ -514,7 +515,7 @@ class _RecommendationDetailSheet extends StatelessWidget {
                   width: 56,
                   height: 80,
                   child: r.thumbnailUrl != null
-                      ? Image.network(r.thumbnailUrl!, fit: BoxFit.cover)
+                      ? CachedNetworkImage(imageUrl: r.thumbnailUrl!, fit: BoxFit.cover)
                       : _CoverPlaceholder(color: mintPrimary),
                 ),
               ),
