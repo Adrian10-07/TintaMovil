@@ -3,17 +3,22 @@ import 'package:flutter/foundation.dart';
 import '../../domain/entities/club.dart';
 import '../../domain/entities/club_member.dart';
 import '../../domain/repositories/club_repository.dart';
+import '../../data/services/club_notification_service.dart';
 
 enum ClubsState { initial, loading, loaded, error, empty }
 enum ClubsTab { explore, myClubs }
 
 /// ViewModel para la pantalla principal de clubes.
+///
+/// Optimizaciones vs versión anterior:
+/// - _loadMyClubDetails usa Future.wait en batches para paralelizar.
+/// - notifyListeners() se llama una sola vez al final del batch, no por cada club.
+/// - filteredPublicClubs se cachea para evitar recomputar en cada build.
 class ClubsViewModel extends ChangeNotifier {
   final ClubRepository _repository;
+  final ClubNotificationService _notifService;
 
-  ClubsViewModel(this._repository);
-
-  // ── Estado ──────────────────────────────────────────────────────────────
+  ClubsViewModel(this._repository, this._notifService);
 
   ClubsState _state = ClubsState.initial;
   ClubsState get state => _state;
@@ -40,13 +45,54 @@ class ClubsViewModel extends ChangeNotifier {
   List<ClubMember> _myMemberships = [];
   List<ClubMember> get myMemberships => _myMemberships;
 
+  /// Membresías ordenadas: clubes con mensajes no leídos primero.
+  List<ClubMember> get sortedMemberships {
+    final unread = _notifService.unreadClubIds;
+    if (unread.isEmpty) return _myMemberships;
+    final sorted = List<ClubMember>.from(_myMemberships);
+    sorted.sort((a, b) {
+      final aUnread = unread.contains(a.clubId) ? 0 : 1;
+      final bUnread = unread.contains(b.clubId) ? 0 : 1;
+      return aUnread.compareTo(bUnread);
+    });
+    return sorted;
+  }
+
   final Map<String, Club> _myClubsCache = {};
   Club? getMyClub(String clubId) => _myClubsCache[clubId];
 
-  // ── Búsqueda ───────────────────────────────────────────────────────────
+  // ── Búsqueda (con caché) ───────────────────────────────────────────────
 
   String _searchQuery = '';
   String get searchQuery => _searchQuery;
+  List<Club>? _filteredCache;
+
+  List<Club> get filteredPublicClubs {
+    if (_filteredCache != null) return _filteredCache!;
+
+    // IDs de clubes donde ya soy miembro → no mostrar en Explorar.
+    final myClubIds = _myMemberships.map((m) => m.clubId).toSet();
+
+    var result = _publicClubs.where((c) => !myClubIds.contains(c.id));
+
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      result = result.where((c) {
+        return c.name.toLowerCase().contains(q) ||
+            c.description.toLowerCase().contains(q) ||
+            (c.category?.toLowerCase().contains(q) ?? false);
+      });
+    }
+
+    _filteredCache = result.toList();
+    return _filteredCache!;
+  }
+
+  void setSearchQuery(String query) {
+    _searchQuery = query;
+    _filteredCache = null; // Invalidar caché.
+    notifyListeners();
+  }
 
   // ── Tabs ────────────────────────────────────────────────────────────────
 
@@ -68,6 +114,7 @@ class ClubsViewModel extends ChangeNotifier {
       _publicPage = 1;
       final result = await _repository.listClubs(page: 1, pageSize: 20);
       _publicClubs = result.items;
+      _filteredCache = null;
       _hasMorePublic = result.hasMore;
       _state = _publicClubs.isEmpty ? ClubsState.empty : ClubsState.loaded;
     } catch (e) {
@@ -85,6 +132,7 @@ class ClubsViewModel extends ChangeNotifier {
       _publicPage++;
       final result = await _repository.listClubs(page: _publicPage, pageSize: 20);
       _publicClubs.addAll(result.items);
+      _filteredCache = null;
       _hasMorePublic = result.hasMore;
     } catch (_) {
       _publicPage--;
@@ -93,7 +141,7 @@ class ClubsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Mis clubes ─────────────────────────────────────────────────────────
+  // ── Mis clubes (optimizado: batch paralelo + single notify) ────────────
 
   Future<void> loadMyClubs() async {
     _state = ClubsState.loading;
@@ -101,56 +149,41 @@ class ClubsViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       _myMemberships = await _repository.listMyClubs();
+      _filteredCache = null; // Invalidar: la lista de Explorar debe excluir mis clubes nuevos.
       _state = _myMemberships.isEmpty ? ClubsState.empty : ClubsState.loaded;
+      notifyListeners();
+      // Cargar detalles en background sin bloquear la UI.
       _loadMyClubDetails();
     } catch (e) {
       _state = ClubsState.error;
       _errorMessage = e.toString();
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   Future<void> _loadMyClubDetails() async {
-    for (final m in _myMemberships) {
-      if (_myClubsCache.containsKey(m.clubId)) continue;
+    final pending = _myMemberships
+        .where((m) => !_myClubsCache.containsKey(m.clubId))
+        .toList();
+    if (pending.isEmpty) return;
+
+    // Cargar en paralelo (todas a la vez — son requests livianos).
+    await Future.wait(pending.map((m) async {
       try {
         final club = await _repository.getClub(m.clubId);
-        // Usar members.length real como contador si member_count viene en 0.
-        if (club.memberCount == 0) {
-          final members = await _repository.listMembers(m.clubId);
-          _myClubsCache[m.clubId] = club.copyWith(memberCount: members.length);
-        } else {
-          _myClubsCache[m.clubId] = club;
-        }
-        notifyListeners();
+        _myClubsCache[m.clubId] = club;
       } catch (_) {}
-    }
-  }
+    }));
 
-  // ── Búsqueda ───────────────────────────────────────────────────────────
-
-  void setSearchQuery(String query) {
-    _searchQuery = query;
+    // Un solo notifyListeners para todo el batch.
     notifyListeners();
   }
 
-  List<Club> get filteredPublicClubs {
-    if (_searchQuery.isEmpty) return _publicClubs;
-    final q = _searchQuery.toLowerCase();
-    return _publicClubs.where((c) {
-      return c.name.toLowerCase().contains(q) ||
-          c.description.toLowerCase().contains(q) ||
-          (c.category?.toLowerCase().contains(q) ?? false);
-    }).toList();
-  }
-
-  // ── Crear club (auto-join como owner) ──────────────────────────────────
+  // ── Crear club ─────────────────────────────────────────────────────────
 
   bool _isCreating = false;
   bool get isCreating => _isCreating;
 
-  /// Crea un club. El backend asigna al creador como owner automáticamente.
-  /// Después recargamos "Mis Clubes" para reflejar la nueva membresía.
   Future<Club?> createClub({
     required String name,
     String description = '',
@@ -162,17 +195,14 @@ class ClubsViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       final club = await _repository.createClub(
-        name: name,
-        description: description,
-        bookId: bookId,
-        isPrivate: isPrivate,
+        name: name, description: description,
+        bookId: bookId, isPrivate: isPrivate,
       );
-
-      // El backend ya registra al creador como owner, solo refrescamos.
       await loadMyClubs();
-
-      if (!isPrivate) _publicClubs.insert(0, club);
-
+      if (!isPrivate) {
+        _publicClubs.insert(0, club);
+        _filteredCache = null;
+      }
       _isCreating = false;
       notifyListeners();
       return club;

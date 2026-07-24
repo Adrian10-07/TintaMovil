@@ -6,22 +6,17 @@ import '../../domain/entities/discussion.dart';
 import '../../domain/repositories/club_repository.dart';
 import '../../data/services/moderation_service.dart';
 import '../../data/services/websocket_service.dart';
+import '../../data/services/user_cache_service.dart';
 
 /// Estados del chat.
 enum ChatState { initial, loading, loaded, error, empty }
 
 /// ViewModel para el chat dentro de un club.
-///
-/// Gestiona:
-/// - Lista de mensajes con cache-first + sync incremental
-/// - Envío de mensajes con moderación client-side
-/// - Recepción en tiempo real via WebSocket/polling
-/// - Scroll infinito hacia arriba (mensajes antiguos)
-/// - Filtro por capítulo
 class ClubChatViewModel extends ChangeNotifier {
   final ClubRepository _repository;
   final ModerationService _moderation;
   final WebSocketService _ws;
+  final UserCacheService _userCache;
   final String clubId;
   final String currentUserId;
 
@@ -29,11 +24,13 @@ class ClubChatViewModel extends ChangeNotifier {
     required ClubRepository repository,
     required ModerationService moderation,
     required WebSocketService ws,
+    required UserCacheService userCache,
     required this.clubId,
     required this.currentUserId,
   })  : _repository = repository,
         _moderation = moderation,
-        _ws = ws;
+        _ws = ws,
+        _userCache = userCache;
 
   // ── Estado ──────────────────────────────────────────────────────────────
 
@@ -71,7 +68,7 @@ class ClubChatViewModel extends ChangeNotifier {
       // 1. Cargar mensajes del caché local (respuesta inmediata).
       final cached = await _repository.getCachedDiscussions(clubId);
       if (cached.isNotEmpty) {
-        _messages = _enrichMessages(cached);
+        _messages = await _enrichMessages(cached);
         _state = ChatState.loaded;
         notifyListeners();
       }
@@ -171,7 +168,7 @@ class ClubChatViewModel extends ChangeNotifier {
       );
 
       final enriched = _enrichMessages(page.items);
-      _messages.addAll(enriched);
+      _messages.addAll(await enriched);
       _hasMoreOlder = page.hasMore;
     } catch (e) {
       _currentPage--; // Revertir para reintentar.
@@ -286,7 +283,7 @@ class ClubChatViewModel extends ChangeNotifier {
         chapterNumber: _filterChapter,
       );
 
-      final enriched = _enrichMessages(page.items);
+      final enriched = await _enrichMessages(page.items);
       _mergeMessages(enriched);
       _hasMoreOlder = page.hasMore;
     } catch (_) {
@@ -308,32 +305,38 @@ class ClubChatViewModel extends ChangeNotifier {
   }
 
   /// Maneja un mensaje recibido en tiempo real.
-  void _onRealtimeMessage(Discussion message) {
-    // Evitar duplicados.
+  void _onRealtimeMessage(Discussion message) async {
     if (_messages.any((m) => m.id == message.id)) return;
+    if (_filterChapter != null && message.chapterNumber != _filterChapter) return;
 
-    // Aplicar filtro de capítulo.
-    if (_filterChapter != null && message.chapterNumber != _filterChapter) {
-      return;
+    final isMine = message.userId == currentUserId;
+    String? userName;
+    if (!isMine) {
+      userName = await _userCache.getUserName(message.userId);
     }
 
-    final enriched = message.copyWith(
-      isMine: message.userId == currentUserId,
-    );
-
+    final enriched = message.copyWith(isMine: isMine, userName: userName);
     _messages.insert(0, enriched);
-
-    // Cachear.
     _repository.cacheDiscussions([message]);
 
     if (_state == ChatState.empty) _state = ChatState.loaded;
     notifyListeners();
   }
 
-  /// Enriquece los mensajes con información del usuario actual.
-  List<Discussion> _enrichMessages(List<Discussion> messages) {
+  /// Enriquece los mensajes con nombre de usuario real y flag isMine.
+  Future<List<Discussion>> _enrichMessages(List<Discussion> messages) async {
+    // Resolver nombres de usuarios únicos en paralelo.
+    final userIds = messages
+        .where((m) => m.userId != currentUserId)
+        .map((m) => m.userId)
+        .toSet();
+    final names = await _userCache.resolveNames(userIds);
+
     return messages.map((m) {
-      return m.copyWith(isMine: m.userId == currentUserId);
+      return m.copyWith(
+        isMine: m.userId == currentUserId,
+        userName: m.userId == currentUserId ? null : names[m.userId],
+      );
     }).toList();
   }
 

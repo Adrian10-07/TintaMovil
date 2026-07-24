@@ -9,6 +9,7 @@ import '../../domain/repositories/club_repository.dart';
 import '../../data/services/moderation_service.dart';
 import '../../data/services/websocket_service.dart';
 import '../../data/services/club_notification_service.dart';
+import '../../data/services/user_cache_service.dart';
 import '../viewmodels/club_chat_viewmodel.dart';
 import '../components/chat_bubble.dart';
 import '../components/chat_input_bar.dart';
@@ -60,6 +61,7 @@ class _ClubChatViewState extends State<ClubChatView> {
       repository: sl<ClubRepository>(),
       moderation: sl<ModerationService>(),
       ws: sl<WebSocketService>(),
+      userCache: sl<UserCacheService>(),
       clubId: widget.clubId,
       currentUserId: currentUserId,
     );
@@ -258,35 +260,50 @@ class _ClubChatViewState extends State<ClubChatView> {
           ),
         ],
       ),
-      body: ListenableBuilder(
-        listenable: _vm,
-        builder: (context, _) {
-          return Column(children: [
-            ..._buildPinnedMessages(colorScheme, textTheme),
-            if (_vm.filterChapter != null)
-              Material(
-                color: colorScheme.secondaryContainer,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Row(children: [
-                    Icon(Icons.filter_alt_rounded, size: 16, color: colorScheme.onSecondaryContainer),
-                    const SizedBox(width: 8),
-                    Text('Capítulo ${_vm.filterChapter}',
-                        style: textTheme.labelMedium?.copyWith(color: colorScheme.onSecondaryContainer)),
-                    const Spacer(),
-                    InkWell(
-                      onTap: () => _vm.setChapterFilter(null),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(padding: const EdgeInsets.all(4),
-                          child: Icon(Icons.close_rounded, size: 16, color: colorScheme.onSecondaryContainer)),
+      body: Column(
+        children: [
+          // Pinned + filter (rebuild solo con mensajes).
+          ListenableBuilder(
+            listenable: _vm,
+            builder: (context, _) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ..._buildPinnedMessages(colorScheme, textTheme),
+                if (_vm.filterChapter != null)
+                  Material(
+                    color: colorScheme.secondaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      child: Row(children: [
+                        Icon(Icons.filter_alt_rounded, size: 16, color: colorScheme.onSecondaryContainer),
+                        const SizedBox(width: 8),
+                        Text('Capítulo ${_vm.filterChapter}',
+                            style: textTheme.labelMedium?.copyWith(color: colorScheme.onSecondaryContainer)),
+                        const Spacer(),
+                        InkWell(
+                          onTap: () => _vm.setChapterFilter(null),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(padding: const EdgeInsets.all(4),
+                              child: Icon(Icons.close_rounded, size: 16, color: colorScheme.onSecondaryContainer)),
+                        ),
+                      ]),
                     ),
-                  ]),
-                ),
-              ),
-            Expanded(child: _buildMessageList()),
-            ChatInputBar(onSend: _onSend, isSending: _vm.isSending),
-          ]);
-        },
+                  ),
+              ],
+            ),
+          ),
+
+          // Lista de mensajes (rebuild aislado).
+          Expanded(
+            child: ListenableBuilder(
+              listenable: _vm,
+              builder: (context, _) => _buildMessageList(),
+            ),
+          ),
+
+          // Input bar (NO se reconstruye con cada mensaje nuevo).
+          ChatInputBar(onSend: _onSend, isSending: _vm.isSending),
+        ],
       ),
     );
   }
