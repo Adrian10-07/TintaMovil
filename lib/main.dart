@@ -144,8 +144,53 @@ class _SplashGateState extends State<_SplashGate> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Image.asset(
+                'assets/icon/icon.png',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: cs.primary,
+                  child: const Icon(Icons.auto_stories_rounded,
+                      color: Colors.white, size: 36),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'tinta',
+              style: TextStyle(
+                fontFamily: 'PlusJakartaSans',
+                fontWeight: FontWeight.w800,
+                fontSize: 32,
+                color: Color(0xFFE8EAE6),
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: cs.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

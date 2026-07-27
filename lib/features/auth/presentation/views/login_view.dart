@@ -21,6 +21,8 @@ class _LoginViewState extends State<LoginView> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _scrollController = ScrollController();
+  final _buttonKey = GlobalKey();
   bool _obscurePassword = true;
 
   // ── Paleta Tinta (versión negra) ─────────────────────────────
@@ -44,7 +46,24 @@ class _LoginViewState extends State<LoginView> {
     widget.viewModel.removeListener(_onViewModelChange);
     _emailController.dispose();
     _passwordController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Hace scroll para que el botón de ingresar sea visible sobre el teclado.
+  void _scrollToButton() {
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      final ctx = _buttonKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        );
+      }
+    });
   }
 
   void _onViewModelChange() {
@@ -64,8 +83,9 @@ class _LoginViewState extends State<LoginView> {
     return Scaffold(
       backgroundColor: _pureBlack,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // ── Blobs decorativos de fondo (más tenues sobre negro) ──
+          // ── Blobs decorativos de fondo ───────────────────────
           Positioned(
             top: -80,
             right: -60,
@@ -82,15 +102,18 @@ class _LoginViewState extends State<LoginView> {
             child: _Blob(color: _peach.withOpacity(0.08), size: 180),
           ),
 
-          // ── Grilla de puntos sutil ───────────────────────────
+          // ── Grilla de puntos (cubre TODO el fondo) ──────────
           Positioned.fill(
-            child: CustomPaint(painter: _DotGridPainter()),
+            child: RepaintBoundary(
+              child: CustomPaint(painter: _DotGridPainter()),
+            ),
           ),
 
-          // ── Contenido ────────────────────────────────────────
+          // ── Contenido scrolleable ────────────────────────────
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28.0),
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 28),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -169,6 +192,7 @@ class _LoginViewState extends State<LoginView> {
                             icon: Icons.alternate_email_rounded,
                             keyboardType: TextInputType.emailAddress,
                             validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                            onTap: _scrollToButton,
                           ),
 
                           const SizedBox(height: 16),
@@ -179,6 +203,7 @@ class _LoginViewState extends State<LoginView> {
                             label: 'Contraseña',
                             icon: Icons.lock_outline_rounded,
                             obscureText: _obscurePassword,
+                            onTap: _scrollToButton,
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
@@ -201,6 +226,7 @@ class _LoginViewState extends State<LoginView> {
 
                     // ── Botón de ingreso ─────────────────────────
                     ListenableBuilder(
+                      key: _buttonKey,
                       listenable: widget.viewModel,
                       builder: (context, _) {
                         final isLoading =
@@ -362,6 +388,7 @@ class _TintaField extends StatelessWidget {
   final Widget? suffixIcon;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
+  final VoidCallback? onTap;
 
   const _TintaField({
     required this.controller,
@@ -371,6 +398,7 @@ class _TintaField extends StatelessWidget {
     this.suffixIcon,
     this.keyboardType,
     this.validator,
+    this.onTap,
   });
 
   @override
@@ -380,6 +408,7 @@ class _TintaField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
+      onTap: onTap,
       style: const TextStyle(
         fontFamily: 'DMSans',
         fontSize: 15,

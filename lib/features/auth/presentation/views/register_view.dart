@@ -22,6 +22,8 @@ class _RegisterViewState extends State<RegisterView> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _scrollController = ScrollController();
+  final _buttonKey = GlobalKey();
   bool _obscurePassword = true;
 
   // ── Paleta Tinta (versión negra, igual que Login) ────────────
@@ -44,7 +46,23 @@ class _RegisterViewState extends State<RegisterView> {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToButton() {
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      final ctx = _buttonKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        );
+      }
+    });
   }
 
   void _onViewModelChange() {
@@ -64,8 +82,8 @@ class _RegisterViewState extends State<RegisterView> {
     return Scaffold(
       backgroundColor: _pureBlack,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // ── Blobs decorativos de fondo (tenues sobre negro) ──
           Positioned(
             top: -100,
             left: -80,
@@ -82,15 +100,16 @@ class _RegisterViewState extends State<RegisterView> {
             child: _Blob(color: _peach.withOpacity(0.08), size: 170),
           ),
 
-          // ── Grilla de puntos sutil ───────────────────────────
           Positioned.fill(
-            child: CustomPaint(painter: _DotGridPainter()),
+            child: RepaintBoundary(
+              child: CustomPaint(painter: _DotGridPainter()),
+            ),
           ),
 
-          // ── Contenido ────────────────────────────────────────
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28.0),
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 28),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -187,6 +206,7 @@ class _RegisterViewState extends State<RegisterView> {
                             icon: Icons.person_outline_rounded,
                             textCapitalization: TextCapitalization.words,
                             validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                            onTap: _scrollToButton,
                           ),
 
                           const SizedBox(height: 16),
@@ -198,6 +218,7 @@ class _RegisterViewState extends State<RegisterView> {
                             icon: Icons.alternate_email_rounded,
                             keyboardType: TextInputType.emailAddress,
                             validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                            onTap: _scrollToButton,
                           ),
 
                           const SizedBox(height: 16),
@@ -208,6 +229,7 @@ class _RegisterViewState extends State<RegisterView> {
                             label: 'Contraseña',
                             icon: Icons.lock_outline_rounded,
                             obscureText: _obscurePassword,
+                            onTap: _scrollToButton,
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscurePassword
@@ -269,6 +291,7 @@ class _RegisterViewState extends State<RegisterView> {
 
                     // ── Botón crear cuenta ───────────────────────
                     ListenableBuilder(
+                      key: _buttonKey,
                       listenable: widget.viewModel,
                       builder: (context, _) {
                         final isLoading =
@@ -493,6 +516,7 @@ class _TintaField extends StatelessWidget {
   final TextCapitalization textCapitalization;
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
+  final VoidCallback? onTap;
 
   const _TintaField({
     required this.controller,
@@ -504,12 +528,14 @@ class _TintaField extends StatelessWidget {
     this.textCapitalization = TextCapitalization.none,
     this.validator,
     this.onChanged,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      onTap: onTap,
       obscureText: obscureText,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
