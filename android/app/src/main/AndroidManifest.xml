@@ -7,6 +7,8 @@
         android:largeHeap="true"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher">
+        android:debuggable="false"
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"
