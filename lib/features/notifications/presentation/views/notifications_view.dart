@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tinta/core/ui/theme3material/theme.dart';
 import '../../data/services/notification_service.dart';
 
 class NotificationsView extends StatefulWidget {
@@ -86,11 +87,11 @@ class _NotificationTile extends StatelessWidget {
   Color _iconColor(ColorScheme colorScheme) {
     switch (notification.type) {
       case 'streak':
-        return const Color(0xFFE8924A);
+        return MaterialTheme.amber;
       case 'recommendation':
         return colorScheme.primary;
       case 'upload':
-        return const Color(0xFF2E7DAF);
+        return colorScheme.tertiary;
       default:
         return colorScheme.onSurface;
     }

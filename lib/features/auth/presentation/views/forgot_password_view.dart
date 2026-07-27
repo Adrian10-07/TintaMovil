@@ -31,11 +31,6 @@ class ForgotPasswordView extends StatefulWidget {
 enum _Step { captcha, preparing, newPassword, done }
 
 class _ForgotPasswordViewState extends State<ForgotPasswordView> {
-  static const _pureBlack = Color(0xFF000000);
-  static const _mintPrimary = Color(0xFF3DBF7A);
-  static const _lightText = Color(0xFFE8EAE6);
-  static const _mutedText = Color(0xFF9AA0A6);
-
   _Step _step = _Step.captcha;
   String? _code; // se consigue solo, nunca lo escribe el usuario
 
@@ -142,6 +137,9 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     if (_step == _Step.captcha) {
       return ClubCaptchaView(
         userId: widget.userId,
@@ -151,19 +149,19 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
     if (_step == _Step.preparing) {
       return Scaffold(
-        backgroundColor: _pureBlack,
-        body: const Center(
-          child: CircularProgressIndicator(color: _mintPrimary),
+        backgroundColor: colorScheme.surface,
+        body: Center(
+          child: CircularProgressIndicator(color: colorScheme.primary),
         ),
       );
     }
 
     // _Step.newPassword
     return Scaffold(
-      backgroundColor: _pureBlack,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: _pureBlack,
-        foregroundColor: _lightText,
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.onSurface,
         elevation: 0,
       ),
       body: SafeArea(
@@ -173,20 +171,20 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Nueva contraseña',
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 32,
-                  color: _lightText,
+                style: textTheme.headlineLarge?.copyWith(
+                  color: colorScheme.onSurface,
                   letterSpacing: -0.6,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Ya confirmamos que eres tú — escribe tu nueva contraseña.',
-                style: TextStyle(fontFamily: 'DMSans', fontSize: 14, color: _mutedText, height: 1.4),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface.withOpacity(0.6),
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 28),
 
@@ -195,14 +193,13 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
                   padding: const EdgeInsets.all(12),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: (_feedbackIsError ? const Color(0xFFFF7E7E) : _mintPrimary).withOpacity(0.15),
+                    color: (_feedbackIsError ? colorScheme.error : colorScheme.primary).withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     _feedback!,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: _feedbackIsError ? const Color(0xFFFF7E7E) : _mintPrimary,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: _feedbackIsError ? colorScheme.error : colorScheme.primary,
                     ),
                   ),
                 ),
@@ -211,24 +208,30 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
               TextField(
                 controller: _newPasswordController,
                 obscureText: _obscurePassword,
-                style: const TextStyle(fontFamily: 'DMSans', fontSize: 15, color: _lightText),
+                style: textTheme.bodyLarge?.copyWith(
+                  fontSize: 15,
+                  color: colorScheme.onSurface,
+                ),
                 decoration: InputDecoration(
                   labelText: 'Nueva contraseña',
-                  labelStyle: const TextStyle(fontFamily: 'DMSans', fontSize: 14, color: _mutedText),
-                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20, color: _mutedText),
+                  labelStyle: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                  prefixIcon: Icon(Icons.lock_outline_rounded,
+                      size: 20, color: colorScheme.onSurface.withOpacity(0.6)),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: _mutedText, size: 20,
+                      color: colorScheme.onSurface.withOpacity(0.6), size: 20,
                     ),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
                   filled: true,
-                  fillColor: const Color(0xFF1C1C1E),
+                  fillColor: colorScheme.surfaceContainerHighest,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: _mintPrimary, width: 1.5),
+                    borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 ),
@@ -240,17 +243,17 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _confirmReset,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _mintPrimary,
-                    foregroundColor: Colors.white,
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                   ),
                   child: _loading
-                      ? const SizedBox(
+                      ? SizedBox(
                     width: 22, height: 22,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                    child: CircularProgressIndicator(color: colorScheme.onPrimary, strokeWidth: 2.5),
                   )
-                      : const Text('Cambiar contraseña',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      : Text('Cambiar contraseña',
+                      style: textTheme.titleMedium?.copyWith(color: colorScheme.onPrimary)),
                 ),
               ),
               const SizedBox(height: 32),

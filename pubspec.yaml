@@ -73,6 +73,7 @@ dependencies:
   # Permite leer en voz alta las respuestas del tutor y guardarlas
   # como archivos .wav para escucha offline.
   flutter_tts: ^4.2.0
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:

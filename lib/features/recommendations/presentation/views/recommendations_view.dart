@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:tinta/core/ui/theme3material/theme.dart';
 
 import 'package:tinta/core/di/service_locator.dart';
 import 'package:tinta/core/network/http_client.dart';
@@ -9,10 +11,7 @@ import 'recommendation_web_view.dart';
 import '../../../home/domain/repositories/book_repository.dart';
 import '../../../home/domain/entities/book.dart';
 
-/// Vista de recomendaciones: tarjetas con portada, título, autores,
-/// porcentaje de afinidad y el "por qué" de cada recomendación.
 class RecommendationsView extends StatefulWidget {
-  /// Cuando es true, se usa como pestaña dentro de MainTabShell.
   final bool embedded;
 
   const RecommendationsView({Key? key, this.embedded = false}) : super(key: key);
@@ -22,14 +21,6 @@ class RecommendationsView extends StatefulWidget {
 }
 
 class _RecommendationsViewState extends State<RecommendationsView> {
-  // ── Paleta Tinta ──────────────────────────────────────────────
-  static const _mintPrimary = Color(0xFF3DBF7A);
-  static const _deepGreen = Color(0xFF1A4D2E);
-  static const _warmGold = Color(0xFFF5C842);
-  static const _peach = Color(0xFFFFBF9B);
-  static const _offWhite = Color(0xFFF2F5EF);
-  static const _darkText = Color(0xFF1A2B1F);
-
   final _dataSource = RecommendationRemoteDataSource(sl<ApiClient>());
   final _bookRepository = sl<BookRepository>();
 
@@ -60,11 +51,6 @@ class _RecommendationsViewState extends State<RecommendationsView> {
     }
   }
 
-  /// Al tocar una recomendación: primero intenta encontrar un EPUB real
-  /// de ese libro en Gutendex (Project Gutenberg) buscando por título y
-  /// autor, y si lo encuentra abre el lector de la app directamente. Solo
-  /// si no hay ningún EPUB disponible, cae al link externo o al panel de
-  /// descripción como respaldo.
   Future<void> _onRecommendationTap(Recommendation r) async {
     setState(() {
       _searchingFor = true;
@@ -89,7 +75,6 @@ class _RecommendationsViewState extends State<RecommendationsView> {
       return;
     }
 
-    // No hay EPUB legible de este libro en Gutendex — respaldo.
     if (r.infoLink != null && r.infoLink!.isNotEmpty) {
       Navigator.push(
         context,
@@ -104,19 +89,10 @@ class _RecommendationsViewState extends State<RecommendationsView> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _RecommendationDetailSheet(
-        recommendation: r,
-        mintPrimary: _mintPrimary,
-        deepGreen: _deepGreen,
-        darkText: _darkText,
-      ),
+      builder: (_) => _RecommendationDetailSheet(recommendation: r),
     );
   }
 
-  /// De los resultados de búsqueda, elige el que más se parece al título
-  /// de la recomendación (coincidencia simple por texto, insensible a
-  /// mayúsculas). Si ninguno se parece razonablemente, regresa null en
-  /// vez de abrir un libro equivocado.
   Book? _bestMatch(List<Book> candidates, Recommendation r) {
     if (candidates.isEmpty) return null;
 
@@ -156,20 +132,19 @@ class _RecommendationsViewState extends State<RecommendationsView> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: _offWhite,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         automaticallyImplyLeading: !widget.embedded,
-        backgroundColor: _offWhite,
+        backgroundColor: colorScheme.surface,
         elevation: 0,
-        foregroundColor: _deepGreen,
+        foregroundColor: colorScheme.onSurface,
         title: Text(
           'Te puede interesar',
-          style: TextStyle(
-            fontFamily: 'PlusJakartaSans',
-            fontWeight: FontWeight.w800,
-            color: _deepGreen,
-          ),
+          style: textTheme.titleLarge?.copyWith(color: colorScheme.onSurface),
         ),
         actions: [
           IconButton(
@@ -181,30 +156,28 @@ class _RecommendationsViewState extends State<RecommendationsView> {
       ),
       body: Stack(
         children: [
-          _buildBody(),
+          _buildBody(context),
           if (_searchingFor)
             Container(
-              color: Colors.black.withOpacity(0.35),
+              color: colorScheme.scrim.withOpacity(0.35),
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   margin: const EdgeInsets.symmetric(horizontal: 40),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: colorScheme.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(color: _mintPrimary),
+                      CircularProgressIndicator(color: colorScheme.primary),
                       const SizedBox(height: 12),
                       Text(
                         'Buscando "${_searchingTitle ?? ''}"…',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'DMSans',
-                          fontSize: 13,
-                          color: _darkText.withOpacity(0.7),
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                     ],
@@ -217,41 +190,41 @@ class _RecommendationsViewState extends State<RecommendationsView> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_error != null) {
       return _StateMessage(
         icon: Icons.wifi_off_rounded,
-        iconColor: _peach,
+        iconColor: MaterialTheme.peach,
         title: 'No se pudo cargar',
         message: _error!,
-        darkText: _darkText,
         action: TextButton.icon(
           onPressed: _load,
-          icon: Icon(Icons.refresh_rounded, color: _mintPrimary),
+          icon: Icon(Icons.refresh_rounded, color: colorScheme.primary),
           label: Text('Reintentar',
               style: TextStyle(
-                  color: _mintPrimary, fontWeight: FontWeight.w700)),
+                  color: colorScheme.primary, fontWeight: FontWeight.w700)),
         ),
       );
     }
     if (_items == null) {
       return Center(
-        child: CircularProgressIndicator(color: _mintPrimary),
+        child: CircularProgressIndicator(color: colorScheme.primary),
       );
     }
     if (_items!.isEmpty) {
       return _StateMessage(
         icon: Icons.auto_stories_outlined,
-        iconColor: _mintPrimary,
+        iconColor: colorScheme.primary,
         title: 'Aún no hay recomendaciones',
         message: 'Sube un libro desde el inicio para recibir '
             'recomendaciones basadas en su contenido.',
-        darkText: _darkText,
       );
     }
 
     return RefreshIndicator(
-      color: _mintPrimary,
+      color: colorScheme.primary,
       onRefresh: _load,
       child: ListView.separated(
         padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
@@ -259,20 +232,11 @@ class _RecommendationsViewState extends State<RecommendationsView> {
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (_, i) {
           if (i == 0) {
-            return _AffinityExplainer(
-              mintPrimary: _mintPrimary,
-              deepGreen: _deepGreen,
-              onTap: _showAffinityInfo,
-            );
+            return _AffinityExplainer(onTap: _showAffinityInfo);
           }
           final r = _items![i - 1];
           return _RecommendationCard(
             recommendation: r,
-            mintPrimary: _mintPrimary,
-            deepGreen: _deepGreen,
-            warmGold: _warmGold,
-            peach: _peach,
-            darkText: _darkText,
             onTap: () => _onRecommendationTap(r),
           );
         },
@@ -281,43 +245,33 @@ class _RecommendationsViewState extends State<RecommendationsView> {
   }
 }
 
-/// Franja pequeña que explica de una vez qué significa el % en las
-/// tarjetas de abajo, para no depender de que el usuario descubra el
-/// ícono de info en el AppBar.
 class _AffinityExplainer extends StatelessWidget {
-  final Color mintPrimary;
-  final Color deepGreen;
   final VoidCallback onTap;
 
-  const _AffinityExplainer({
-    required this.mintPrimary,
-    required this.deepGreen,
-    required this.onTap,
-  });
+  const _AffinityExplainer({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: mintPrimary.withOpacity(0.10),
+          color: colorScheme.primary.withOpacity(0.10),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
-            Icon(Icons.info_outline_rounded, size: 16, color: mintPrimary),
+            Icon(Icons.info_outline_rounded, size: 16, color: colorScheme.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'El % indica qué tan afín es cada libro a lo que ya leíste. Toca uno para ver más.',
-                style: TextStyle(
-                  fontFamily: 'DMSans',
-                  fontSize: 11.5,
-                  color: deepGreen,
-                ),
+                style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface),
               ),
             ),
           ],
@@ -329,33 +283,26 @@ class _AffinityExplainer extends StatelessWidget {
 
 class _RecommendationCard extends StatelessWidget {
   final Recommendation recommendation;
-  final Color mintPrimary;
-  final Color deepGreen;
-  final Color warmGold;
-  final Color peach;
-  final Color darkText;
   final VoidCallback onTap;
 
   const _RecommendationCard({
     required this.recommendation,
-    required this.mintPrimary,
-    required this.deepGreen,
-    required this.warmGold,
-    required this.peach,
-    required this.darkText,
     required this.onTap,
   });
 
-  Color get _matchColor {
+  Color _matchColor(ColorScheme colorScheme) {
     final p = recommendation.matchPercent;
-    if (p >= 70) return mintPrimary;
-    if (p >= 40) return warmGold;
-    return peach;
+    if (p >= 70) return colorScheme.primary;
+    if (p >= 40) return MaterialTheme.warmGold;
+    return MaterialTheme.peach;
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final r = recommendation;
+    final matchColor = _matchColor(colorScheme);
 
     return InkWell(
       onTap: onTap,
@@ -363,11 +310,11 @@ class _RecommendationCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: darkText.withOpacity(0.05),
+              color: colorScheme.shadow.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -382,14 +329,14 @@ class _RecommendationCard extends StatelessWidget {
                 width: 56,
                 height: 80,
                 child: r.thumbnailUrl != null
-                    ? Image.network(
-                  r.thumbnailUrl!,
+                    ? CachedNetworkImage(
+                  imageUrl: r.thumbnailUrl!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _CoverPlaceholder(
-                    color: mintPrimary,
+                  errorWidget: (_, __, ___) => _CoverPlaceholder(
+                    color: colorScheme.primary,
                   ),
                 )
-                    : _CoverPlaceholder(color: mintPrimary),
+                    : _CoverPlaceholder(color: colorScheme.primary),
               ),
             ),
             const SizedBox(width: 14),
@@ -405,16 +352,13 @@ class _RecommendationCard extends StatelessWidget {
                           r.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14.5,
-                            color: deepGreen,
+                          style: textTheme.titleSmall?.copyWith(
+                            color: colorScheme.onSurface,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      _MatchBadge(percent: r.matchPercent, color: _matchColor),
+                      _MatchBadge(percent: r.matchPercent, color: matchColor),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -422,10 +366,8 @@ class _RecommendationCard extends StatelessWidget {
                     r.authors.join(', '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'DMSans',
-                      fontSize: 12.5,
-                      color: darkText.withOpacity(0.55),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.55),
                     ),
                   ),
                   if (r.matchReason != null) ...[
@@ -434,18 +376,15 @@ class _RecommendationCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: mintPrimary.withOpacity(0.10),
+                        color: colorScheme.primary.withOpacity(0.10),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         r.matchReason!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'DMSans',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: deepGreen,
+                        style: textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurface,
                         ),
                       ),
                     ),
@@ -454,13 +393,11 @@ class _RecommendationCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(Icons.chevron_right_rounded,
-                          size: 14, color: darkText.withOpacity(0.35)),
+                          size: 14, color: colorScheme.onSurface.withOpacity(0.35)),
                       Text(
                         'Toca para ver más',
-                        style: TextStyle(
-                          fontFamily: 'DMSans',
-                          fontSize: 10.5,
-                          color: darkText.withOpacity(0.35),
+                        style: textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.35),
                         ),
                       ),
                     ],
@@ -475,23 +412,15 @@ class _RecommendationCard extends StatelessWidget {
   }
 }
 
-/// Panel que se muestra cuando la recomendación no trae un link externo
-/// al que navegar — da al menos la descripción y el motivo del match.
 class _RecommendationDetailSheet extends StatelessWidget {
   final Recommendation recommendation;
-  final Color mintPrimary;
-  final Color deepGreen;
-  final Color darkText;
 
-  const _RecommendationDetailSheet({
-    required this.recommendation,
-    required this.mintPrimary,
-    required this.deepGreen,
-    required this.darkText,
-  });
+  const _RecommendationDetailSheet({required this.recommendation});
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final r = recommendation;
 
     return Padding(
@@ -514,8 +443,8 @@ class _RecommendationDetailSheet extends StatelessWidget {
                   width: 56,
                   height: 80,
                   child: r.thumbnailUrl != null
-                      ? Image.network(r.thumbnailUrl!, fit: BoxFit.cover)
-                      : _CoverPlaceholder(color: mintPrimary),
+                      ? CachedNetworkImage(imageUrl: r.thumbnailUrl!, fit: BoxFit.cover)
+                      : _CoverPlaceholder(color: colorScheme.primary),
                 ),
               ),
               const SizedBox(width: 14),
@@ -524,17 +453,11 @@ class _RecommendationDetailSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(r.title,
-                        style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                            color: deepGreen)),
+                        style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface)),
                     const SizedBox(height: 4),
                     Text(r.authors.join(', '),
-                        style: TextStyle(
-                            fontFamily: 'DMSans',
-                            fontSize: 13,
-                            color: darkText.withOpacity(0.6))),
+                        style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.6))),
                   ],
                 ),
               ),
@@ -544,20 +467,16 @@ class _RecommendationDetailSheet extends StatelessWidget {
           if (r.description != null && r.description!.isNotEmpty)
             Text(
               r.description!,
-              style: TextStyle(
-                fontFamily: 'DMSans',
-                fontSize: 13.5,
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.75),
                 height: 1.5,
-                color: darkText.withOpacity(0.75),
               ),
             )
           else
             Text(
               'No hay más información disponible para este libro por ahora.',
-              style: TextStyle(
-                fontFamily: 'DMSans',
-                fontSize: 13.5,
-                color: darkText.withOpacity(0.5),
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.5),
               ),
             ),
         ],
@@ -583,7 +502,6 @@ class _MatchBadge extends StatelessWidget {
       child: Text(
         '$percent%',
         style: TextStyle(
-          fontFamily: 'DMSans',
           fontSize: 11,
           fontWeight: FontWeight.w800,
           color: color,
@@ -611,7 +529,6 @@ class _StateMessage extends StatelessWidget {
   final Color iconColor;
   final String title;
   final String message;
-  final Color darkText;
   final Widget? action;
 
   const _StateMessage({
@@ -619,12 +536,14 @@ class _StateMessage extends StatelessWidget {
     required this.iconColor,
     required this.title,
     required this.message,
-    required this.darkText,
     this.action,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -643,21 +562,14 @@ class _StateMessage extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: TextStyle(
-                fontFamily: 'PlusJakartaSans',
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-                color: darkText,
-              ),
+              style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
             Text(
               message,
-              style: TextStyle(
-                fontFamily: 'DMSans',
-                fontSize: 13,
-                color: darkText.withOpacity(0.55),
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.55),
               ),
               textAlign: TextAlign.center,
             ),
