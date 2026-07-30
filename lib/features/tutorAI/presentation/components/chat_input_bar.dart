@@ -32,12 +32,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
     super.dispose();
   }
 
-  void _handleSend() {
-    final text = _controller.text.trim();
-    if (text.isEmpty || !widget.enabled) return;
-    widget.onSend(text);
-    _controller.clear();
-  }
+    void _handleSend() {
+      final text = _controller.text.trim();
+      if (text.isEmpty || !widget.enabled) return;
+      widget.onSend(text);
+      _controller.clear();
+    }
 
   @override
   Widget build(BuildContext context) {

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Idioma de la interfaz. Independiente del "language" que se guarda en
-/// el perfil del backend (ese es solo metadata de cuenta) — este es el
-/// que realmente cambia los textos que ves en pantalla.
+/// Idioma de la interfaz. Independiente del "language"
+
 enum AppLanguage { es, en }
 
 extension AppLanguageLabel on AppLanguage {

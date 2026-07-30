@@ -1,30 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:tinta/core/localization/app_strings.dart';
 import 'package:tinta/core/ui/theme3material/theme.dart';
-import 'package:tinta/features/auth/presentation/viewmodels/auth_viewmodel.dart';
-import '../viewmodels/user_viewmodel.dart';
 import '../../../../core/presentation/components/tinta_background.dart';
-import '../components/user_avatar.dart';
-import '../components/profile_menu_item.dart';
-import '../components/edit_profile_sheet.dart';
-import '../../../../core/di/service_locator.dart';
-import '../../../../main.dart' show appSettings;
-import 'notification_settings_view.dart';
-import 'appearance_settings_view.dart';
-import 'privacy_control_view.dart';
-import 'help_support_view.dart';
-import 'security_info_view.dart';
-import '../../../achievements/presentation/views/achievements_view.dart';
 import '../../../achievements/data/services/achievement_service.dart';
-import '../../../../core/localization/app_strings.dart';
-import '../../../auth/domain/repositories/auth_repository.dart';
-import '../../../auth/presentation/views/forgot_password_view.dart';
-import '../../../clubs/data/services/captcha_gate_service.dart';
+import '../components/account_info_section.dart';
+import '../components/logout_dialog.dart';
+import '../components/profile_header_section.dart';
+import '../components/settings_section.dart';
+import '../viewmodels/user_viewmodel.dart';
 
 /// Pantalla de perfil del usuario (Tab "Yo").
 ///
 /// Campos disponibles del backend Identity:
-/// id, email, name, role, email_verified, avatar_url, language, created_at, updated_at
+/// id, email, name, role, email_verified, avatar_url, language,
+/// created_at, updated_at.
+///
+/// Refactor: la vista bajó de 547 → ~110 líneas. Solo orquesta 3
+/// secciones (`ProfileHeaderSection`, `AccountInfoSection`,
+/// `SettingsSection`) y delega el logout a `LogoutDialog`. Los widgets
+/// helper (`_InfoCard`, `_InfoRow`, `_MenuSection`) se movieron dentro
+/// de sus componentes correspondientes.
 class UserView extends StatefulWidget {
   const UserView({Key? key}) : super(key: key);
 
@@ -39,7 +35,10 @@ class _UserViewState extends State<UserView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<UserViewModel>().loadProfile().then((_) => _loadAchievementPoints());
+      context
+          .read<UserViewModel>()
+          .loadProfile()
+          .then((_) => _loadAchievementPoints());
     });
   }
 
@@ -75,9 +74,7 @@ class _UserViewState extends State<UserView> {
                 opacity: 0.08,
               ),
             ],
-            child: SafeArea(
-              child: _buildContent(context, vm),
-            ),
+            child: SafeArea(child: _buildContent(context, vm)),
           ),
         );
       },
@@ -90,18 +87,11 @@ class _UserViewState extends State<UserView> {
     }
 
     if (vm.state == UserState.error && vm.profile == null) {
-      return _ErrorState(
-        message: vm.errorMessage,
-        onRetry: vm.loadProfile,
-      );
+      return _ErrorState(message: vm.errorMessage, onRetry: vm.loadProfile);
     }
 
     final profile = vm.profile;
     if (profile == null) return const SizedBox.shrink();
-
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final t = AppStrings.of(context);
 
     return RefreshIndicator(
       onRefresh: vm.loadProfile,
@@ -112,412 +102,42 @@ class _UserViewState extends State<UserView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-
-            // ── Header del perfil ──────────────────────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                UserAvatar(
-                  name: profile.name,
-                  avatarUrl: profile.avatarUrl.isNotEmpty
-                      ? profile.avatarUrl
-                      : null,
-                  size: 76,
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(profile.name, style: textTheme.headlineSmall),
-                      const SizedBox(height: 2),
-                      Text(
-                        profile.email,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.50),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      // Badge de rol + nivel de lector (logros)
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              profile.role.toUpperCase(),
-                              style: textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onPrimaryContainer,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: MaterialTheme.warmGold.withOpacity(0.25),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.military_tech_rounded,
-                                    size: 12, color: MaterialTheme.warmGold),
-                                const SizedBox(width: 3),
-                                Text(
-                                  AchievementService.levelFor(_achievementPoints).title,
-                                  style: textTheme.labelSmall?.copyWith(
-                                    color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${t.memberSince} ${_formatDate(profile.createdAt)}',
-                        style: textTheme.labelSmall?.copyWith(
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => EditProfileSheet.show(
-                    context,
-                    currentName: profile.name,
-                    currentLanguage: profile.language,
-                    onSave: ({name, language}) =>
-                        context.read<UserViewModel>().updateProfile(
-                          name: name,
-                          language: language,
-                        ),
-                  ),
-                  icon: Icon(
-                    Icons.edit_outlined,
-                    size: 20,
-                    color: colorScheme.primary,
-                  ),
-                ),
-              ],
+            // Cada sección se dibuja sola — este build solo orquesta.
+            ProfileHeaderSection(
+              profile: profile,
+              achievementPoints: _achievementPoints,
+              // Reenvío al viewmodel — `updateProfile` regresa
+              // `Future<bool>`, que es lo que espera EditProfileSheet.
+              onSaveEdit: ({name, language}) => context
+                  .read<UserViewModel>()
+                  .updateProfile(name: name, language: language),
             ),
             const SizedBox(height: 28),
-
-            // ── Info de la cuenta ──────────────────────────────────
-            Text(t.account, style: textTheme.headlineSmall),
-            const SizedBox(height: 14),
-            _InfoCard(
-              children: [
-                ValueListenableBuilder<int>(
-                  valueListenable: CaptchaGateService.changes,
-                  builder: (context, _, __) {
-                    return FutureBuilder<bool>(
-                      future: CaptchaGateService.hasPassed(profile.id),
-                      builder: (context, snapshot) {
-                        final passed = snapshot.data ?? false;
-                        return _InfoRow(
-                          label: 'Antirobot',
-                          value: passed ? 'Verificado' : 'Desconocido',
-                          icon: passed
-                              ? Icons.verified_rounded
-                              : Icons.warning_amber_rounded,
-                          iconColor: passed
-                              ? colorScheme.primary
-                              : MaterialTheme.warmGold,
-                        );
-                      },
-                    );
-                  },
-                ),
-                Divider(
-                  color: colorScheme.outlineVariant.withOpacity(0.4),
-                  height: 1,
-                  indent: 56,
-                ),
-                _InfoRow(
-                  label: t.idiomaLabel,
-                  value: profile.language == 'es' ? 'Español' : 'English',
-                  icon: Icons.language_rounded,
-                ),
-              ],
-            ),
+            AccountInfoSection(profile: profile),
             const SizedBox(height: 32),
-
-            // ── Configuración ──────────────────────────────────────
-            Text(t.settings, style: textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            _MenuSection(children: [
-              ProfileMenuItem(
-                icon: Icons.emoji_events_outlined,
-                label: 'Logros',
-                subtitle: '$_achievementPoints puntos · ${AchievementService.levelFor(_achievementPoints).title}',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => AchievementsView(userId: profile.id),
-                  ),
-                ).then((_) => _loadAchievementPoints()),
-              ),
-              ProfileMenuItem(
-                icon: Icons.shield_outlined,
-                label: 'Seguridad',
-                subtitle: 'Cómo protegemos tu cuenta',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SecurityInfoView(),
-                  ),
-                ),
-              ),
-              ProfileMenuItem(
-                icon: Icons.notifications_outlined,
-                label: t.notifications,
-                subtitle: t.notificationsSubtitle,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => NotificationSettingsView(userId: profile.id),
-                  ),
-                ),
-              ),
-              ProfileMenuItem(
-                icon: Icons.palette_outlined,
-                label: t.appearance,
-                subtitle: t.appearanceSubtitle,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => AppearanceSettingsView(controller: appSettings),
-                  ),
-                ),
-              ),
-              ProfileMenuItem(
-                icon: Icons.lock_outline_rounded,
-                label: t.privacy,
-                subtitle: t.privacySubtitle,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PrivacyControlView(userId: profile.id),
-                  ),
-                ),
-              ),
-              ProfileMenuItem(
-                icon: Icons.lock_reset_rounded,
-                label: 'Restablecer contraseña',
-                subtitle: 'Te mandamos un código a tu correo',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ForgotPasswordView(
-                      authRepository: sl<AuthRepository>(),
-                      userId: profile.id,
-                      initialEmail: profile.email,
-                    ),
-                  ),
-                ),
-              ),
-              ProfileMenuItem(
-                icon: Icons.help_outline_rounded,
-                label: t.helpSupport,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => HelpSupportView(userEmail: profile.email),
-                  ),
-                ),
-              ),
-              ProfileMenuItem(
-                icon: Icons.logout_rounded,
-                label: t.logout,
-                iconColor: colorScheme.error,
-                showChevron: false,
-                onTap: () => _showLogoutDialog(context, t),
-              ),
-            ]),
+            SettingsSection(
+              profile: profile,
+              achievementPoints: _achievementPoints,
+              // Al volver de "Logros" recargo los puntos.
+              onLogoutRequested: () => LogoutDialog.show(context),
+            ),
             const SizedBox(height: 40),
           ],
         ),
       ),
     );
   }
-
-  void _showLogoutDialog(BuildContext context, AppStrings t) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(t.logout),
-        content: Text(t.logoutConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(t.cancel),
-          ),
-          TextButton(
-            onPressed: () => _performLogout(context, ctx),
-            child: Text(
-              t.logout,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Cierra sesión LOCAL-PRIMERO: limpia tokens/perfil y navega a Login
-  /// de inmediato, sin esperar respuesta del servidor. La llamada al
-  /// backend para revocar el refresh token se manda en segundo plano —
-  /// si falla (sin internet, servidor caído, etc.) no bloquea ni
-  /// retrasa nada, porque el usuario ya salió de su sesión localmente.
-  void _performLogout(BuildContext context, BuildContext dialogContext) {
-    Navigator.pop(dialogContext); // cierra el diálogo de confirmación
-
-    final authVM = sl<AuthViewModel>();
-
-    // 1. Local, instantáneo — esto SIEMPRE funciona, no depende de red.
-    context.read<UserViewModel>().clearProfile();
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-
-    // 2. Revocar el refresh token en el backend, en segundo plano.
-    authVM.logout().catchError((_) {});
-  }
-
-  String _formatDate(DateTime date) {
-    const months = [
-      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
-    ];
-    return '${months[date.month - 1]} ${date.year}';
-  }
 }
 
-class _InfoCard extends StatelessWidget {
-  final List<Widget> children;
-  const _InfoCard({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(children: children),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color? iconColor;
-
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    required this.icon,
-    this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final effectiveColor = iconColor ?? colorScheme.primary;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: effectiveColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 20, color: effectiveColor),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(label, style: textTheme.titleSmall),
-          ),
-          Text(
-            value,
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.60),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MenuSection extends StatelessWidget {
-  final List<Widget> children;
-  const _MenuSection({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: children
-            .expand((child) => [
-          child,
-          if (child != children.last)
-            Divider(
-              color: colorScheme.outlineVariant.withOpacity(0.4),
-              height: 1,
-              indent: 56,
-            ),
-        ])
-            .toList(),
-      ),
-    );
-  }
-}
-
+/// Estado de error cuando falla la carga inicial del perfil.
+///
+/// Lo mantengo aquí porque solo aplica a esta vista y depende de su
+/// callback `onRetry` — sacarlo a un componente propio no aportaría
+/// reuso.
 class _ErrorState extends StatelessWidget {
   final String? message;
   final VoidCallback onRetry;
+
   const _ErrorState({required this.message, required this.onRetry});
 
   @override
@@ -526,9 +146,11 @@ class _ErrorState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.person_off_outlined,
-              size: 56,
-              color: Theme.of(context).colorScheme.primaryContainer),
+          Icon(
+            Icons.person_off_outlined,
+            size: 56,
+            color: Theme.of(context).colorScheme.primaryContainer,
+          ),
           const SizedBox(height: 16),
           Text(
             message ?? 'Error al cargar el perfil',

@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../domain/repositories/auth_repository.dart';
 import '../../../clubs/presentation/views/club_captcha_view.dart';
+import '../../domain/repositories/auth_repository.dart';
+import '../components/auth_palette.dart';
+import '../components/auth_primary_button.dart';
+import '../components/tinta_dark_field.dart';
 
 /// Pantalla "Restablecer contraseña" — flujo simplificado:
-///   1. CAPTCHA (confirmar que eres humano).
-///   2. Directo a escribir la nueva contraseña.
-///
-/// El código de 6 dígitos que pide el backend para autorizar el cambio
-/// se sigue pidiendo y usando por dentro (requestPasswordReset +
-/// confirmPasswordReset), pero ya no se le muestra al usuario ni tiene
-/// que escribirlo — se maneja automáticamente en segundo plano, apoyado
-/// en que el backend todavía regresa el código en la respuesta (modo
-/// MVP). El usuario solo ve: CAPTCHA → nueva contraseña.
+
 class ForgotPasswordView extends StatefulWidget {
   final AuthRepository authRepository;
   final String userId;
@@ -31,13 +26,8 @@ class ForgotPasswordView extends StatefulWidget {
 enum _Step { captcha, preparing, newPassword, done }
 
 class _ForgotPasswordViewState extends State<ForgotPasswordView> {
-  static const _pureBlack = Color(0xFF000000);
-  static const _mintPrimary = Color(0xFF3DBF7A);
-  static const _lightText = Color(0xFFE8EAE6);
-  static const _mutedText = Color(0xFF9AA0A6);
-
   _Step _step = _Step.captcha;
-  String? _code; // se consigue solo, nunca lo escribe el usuario
+  String? _code; // Se consigue solo, nunca lo escribe el usuario.
 
   final _newPasswordController = TextEditingController();
   bool _obscurePassword = true;
@@ -61,11 +51,10 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
 
     final email = widget.initialEmail;
     if (email == null || email.isEmpty) {
-      setState(() {
-        _feedbackIsError = true;
-        _feedback = 'No se pudo identificar tu correo. Intenta de nuevo desde Perfil.';
-        _step = _Step.captcha;
-      });
+      _setError(
+        'No se pudo identificar tu correo. Intenta de nuevo desde Perfil.',
+        backToCaptcha: true,
+      );
       return;
     }
 
@@ -74,11 +63,10 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
       if (!mounted) return;
 
       if (code == null) {
-        setState(() {
-          _feedbackIsError = true;
-          _feedback = 'No se pudo preparar el restablecimiento automático. Intenta de nuevo en un momento.';
-          _step = _Step.captcha;
-        });
+        _setError(
+          'No se pudo preparar el restablecimiento automático. Intenta de nuevo en un momento.',
+          backToCaptcha: true,
+        );
         return;
       }
 
@@ -86,13 +74,12 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
         _code = code;
         _step = _Step.newPassword;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _feedbackIsError = true;
-        _feedback = 'No se pudo preparar el restablecimiento. Intenta de nuevo.';
-        _step = _Step.captcha;
-      });
+      _setError(
+        'No se pudo preparar el restablecimiento. Intenta de nuevo.',
+        backToCaptcha: true,
+      );
     }
   }
 
@@ -102,17 +89,11 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
     final code = _code;
 
     if (newPassword.length < 8) {
-      setState(() {
-        _feedbackIsError = true;
-        _feedback = 'La nueva contraseña debe tener mínimo 8 caracteres.';
-      });
+      _setError('La nueva contraseña debe tener mínimo 8 caracteres.');
       return;
     }
     if (email == null || code == null) {
-      setState(() {
-        _feedbackIsError = true;
-        _feedback = 'Algo salió mal, intenta de nuevo desde el inicio.';
-      });
+      _setError('Algo salió mal, intenta de nuevo desde el inicio.');
       return;
     }
 
@@ -129,15 +110,23 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
       );
       if (!mounted) return;
       Navigator.pop(context, true);
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _feedbackIsError = true;
-        _feedback = 'No se pudo cambiar la contraseña (código vencido). Intenta de nuevo desde el inicio.';
-      });
+      _setError(
+        'No se pudo cambiar la contraseña (código vencido). Intenta de nuevo desde el inicio.',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  // Helper para setear feedback de error — centralizo el setState
+  void _setError(String msg, {bool backToCaptcha = false}) {
+    setState(() {
+      _feedbackIsError = true;
+      _feedback = msg;
+      if (backToCaptcha) _step = _Step.captcha;
+    });
   }
 
   @override
@@ -150,20 +139,57 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
     }
 
     if (_step == _Step.preparing) {
-      return Scaffold(
-        backgroundColor: _pureBlack,
-        body: const Center(
-          child: CircularProgressIndicator(color: _mintPrimary),
+      return const Scaffold(
+        backgroundColor: AuthPalette.pureBlack,
+        body: Center(
+          child: CircularProgressIndicator(color: AuthPalette.mintPrimary),
         ),
       );
     }
 
-    // _Step.newPassword
+    return _NewPasswordScreen(
+      controller: _newPasswordController,
+      obscure: _obscurePassword,
+      onToggleObscure: () =>
+          setState(() => _obscurePassword = !_obscurePassword),
+      loading: _loading,
+      feedback: _feedback,
+      feedbackIsError: _feedbackIsError,
+      onSubmit: _confirmReset,
+    );
+  }
+}
+
+/// Pantalla real de escritura de nueva contraseña.
+
+class _NewPasswordScreen extends StatelessWidget {
+  final TextEditingController controller;
+  final bool obscure;
+  final VoidCallback onToggleObscure;
+  final bool loading;
+  final String? feedback;
+  final bool feedbackIsError;
+  final VoidCallback onSubmit;
+
+  const _NewPasswordScreen({
+    required this.controller,
+    required this.obscure,
+    required this.onToggleObscure,
+    required this.loading,
+    required this.feedback,
+    required this.feedbackIsError,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: _pureBlack,
+      backgroundColor: AuthPalette.pureBlack,
       appBar: AppBar(
-        backgroundColor: _pureBlack,
-        foregroundColor: _lightText,
+        backgroundColor: AuthPalette.pureBlack,
+        foregroundColor: AuthPalette.lightText,
         elevation: 0,
       ),
       body: SafeArea(
@@ -173,90 +199,73 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Nueva contraseña',
-                style: TextStyle(
-                  fontFamily: 'PlusJakartaSans',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 32,
-                  color: _lightText,
-                  letterSpacing: -0.6,
+                style: textTheme.headlineLarge?.copyWith(
+                  color: AuthPalette.lightText,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Ya confirmamos que eres tú — escribe tu nueva contraseña.',
-                style: TextStyle(fontFamily: 'DMSans', fontSize: 14, color: _mutedText, height: 1.4),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AuthPalette.mutedText,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 28),
-
-              if (_feedback != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: (_feedbackIsError ? const Color(0xFFFF7E7E) : _mintPrimary).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
+              if (feedback != null)
+                _FeedbackBanner(text: feedback!, isError: feedbackIsError),
+              TintaDarkField(
+                controller: controller,
+                label: 'Nueva contraseña',
+                icon: Icons.lock_outline_rounded,
+                obscureText: obscure,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscure
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: AuthPalette.mutedText,
+                    size: 20,
                   ),
-                  child: Text(
-                    _feedback!,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: _feedbackIsError ? const Color(0xFFFF7E7E) : _mintPrimary,
-                    ),
-                  ),
-                ),
-              ],
-
-              TextField(
-                controller: _newPasswordController,
-                obscureText: _obscurePassword,
-                style: const TextStyle(fontFamily: 'DMSans', fontSize: 15, color: _lightText),
-                decoration: InputDecoration(
-                  labelText: 'Nueva contraseña',
-                  labelStyle: const TextStyle(fontFamily: 'DMSans', fontSize: 14, color: _mutedText),
-                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20, color: _mutedText),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: _mutedText, size: 20,
-                    ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFF1C1C1E),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: _mintPrimary, width: 1.5),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                  onPressed: onToggleObscure,
                 ),
               ),
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _confirmReset,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _mintPrimary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                    width: 22, height: 22,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                  )
-                      : const Text('Cambiar contraseña',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                ),
+              AuthPrimaryButton(
+                isLoading: loading,
+                label: 'Cambiar contraseña',
+                onPressed: onSubmit,
               ),
               const SizedBox(height: 32),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Banner de feedback (verde éxito / coral error).
+class _FeedbackBanner extends StatelessWidget {
+  final String text;
+  final bool isError;
+  const _FeedbackBanner({required this.text, required this.isError});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isError ? AuthPalette.coral : AuthPalette.mintPrimary;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
       ),
     );
   }

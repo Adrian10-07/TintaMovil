@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+2
+version: 1.1.0+4
 
 environment:
   sdk: ^3.11.5
@@ -46,7 +46,7 @@ dependencies:
   # Selector de archivos nativo (para que el usuario elija el PDF a subir).
   file_picker: ^8.1.2
   flutter_pdfview: ^1.3.2
-
+  device_preview: 1.2.0   # última estable a fecha de hoy
   # LLM on-device: llama_cpp_dart (chat con Qwen, feature de Gael) y
   # flutter_gemma (tutor híbrido con Gemma 3 1B, feature de Patrón).
   # Son motores de inferencia distintos para features distintas; no
@@ -56,7 +56,7 @@ dependencies:
   flutter_gemma: ^0.16.5
 
   # Knowledge Base (RAG offline)
-  syncfusion_flutter_pdf: ^27.1.58
+  syncfusion_flutter_pdf: 33.2.13
   sqflite: ^2.4.1
   crypto: ^3.0.6
 

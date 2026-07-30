@@ -17,14 +17,6 @@ class ModerationResult {
   bool get isBlocked => flag == ModerationFlag.blocked;
 }
 
-/// Servicio de moderación de contenido del lado del cliente.
-///
-/// Implementa un filtro ligero basado en reglas para dar feedback
-/// inmediato al usuario antes de enviar al servidor (donde el backend
-/// puede aplicar una moderación más sofisticada con IA).
-///
-/// Este filtro NO reemplaza la moderación del server — es una primera
-/// capa para mejorar la UX (evitar round-trip en casos obvios).
 class ModerationService {
   // Patrones que indican contenido fuera de tema o inapropiado.
   // En producción esto vendría de configuración remota.

@@ -40,6 +40,7 @@ import '../../features/tutorAI/data/repositories/tutor_repository_impl.dart';
 import '../../features/tutorAI/domain/repositories/tutor_repository.dart';
 import '../../features/tutorAI/presentation/viewmodels/tutor_chat_viewmodel.dart';
 import '../../features/tutorAI/data/datasources/mock_tutor_datasource.dart';
+import '../../features/tutorAI/data/services/model_download_service.dart';
 import '../../features/tutorAI/data/services/in_memory_rag_service.dart';
 
 // Tutor AI — remoto (RAG en Railway)
@@ -64,6 +65,7 @@ import '../../features/clubs/data/repositories/club_repository_impl.dart';
 import '../../features/clubs/data/services/moderation_service.dart';
 import '../../features/clubs/data/services/websocket_service.dart';
 import '../../features/clubs/data/services/club_notification_service.dart';
+import '../../features/clubs/data/services/user_cache_service.dart';
 import '../../features/clubs/domain/repositories/club_repository.dart';
 import '../../features/clubs/presentation/viewmodels/clubs_viewmodel.dart';
 
@@ -175,6 +177,10 @@ void registerClubs() {
         () => WebSocketService(),
   );
 
+  sl.registerLazySingleton<UserCacheService>(
+        () => UserCacheService(sl()),
+  );
+
   sl.registerLazySingleton<ClubRepository>(
         () => ClubRepositoryImpl(
       remote: sl(),
@@ -182,12 +188,12 @@ void registerClubs() {
     ),
   );
 
-  sl.registerLazySingleton<ClubsViewModel>(
-        () => ClubsViewModel(sl()),
-  );
-
   sl.registerLazySingleton<ClubNotificationService>(
         () => ClubNotificationService(sl()),
+  );
+
+  sl.registerLazySingleton<ClubsViewModel>(
+        () => ClubsViewModel(sl(), sl()),
   );
 }
 
@@ -222,6 +228,11 @@ void registerTutorAi() {
         : GemmaFlutterTutorDatasource(
       huggingFaceToken: _huggingFaceToken,
     ),
+  );
+
+  // Servicio de descarga (bridge al datasource para la UI).
+  sl.registerLazySingleton<ModelDownloadService>(
+        () => ModelDownloadService(sl<TutorLlmDatasource>()),
   );
 
   sl.registerLazySingleton<TutorRepository>(
