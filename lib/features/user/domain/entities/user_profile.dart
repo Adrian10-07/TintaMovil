@@ -22,6 +22,8 @@ class UserProfile {
     required this.memberSince,
   });
 
+  get language => null;
+
   UserProfile copyWith({
     String? name,
     String? bio,

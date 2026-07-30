@@ -69,7 +69,6 @@ class _CreateClubViewState extends State<CreateClubView> {
     final vm = context.read<ClubsViewModel>();
 
     // Los libros del catálogo local usan slugs como ID ("mary-shelley_frankenstein"),
-    // no UUIDs. El backend espera UUID para book_id, así que incluimos el título
     // del libro en la descripción en lugar de enviar un book_id inválido.
     var description = _descriptionController.text.trim();
     if (_selectedBook != null) {

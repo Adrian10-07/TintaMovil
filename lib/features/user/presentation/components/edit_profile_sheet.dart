@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../../globals.dart';
 import '../../../../main.dart' show appSettings;
 import '../../../../core/settings/app_settings_controller.dart';
 
-/// Bottom sheet para editar nombre e idioma del usuario.
-///
-/// Campos editables según el backend (PATCH /users/me):
-///   name, avatar_url, language
+
 class EditProfileSheet extends StatefulWidget {
   final String currentName;
   final String currentLanguage;
@@ -71,9 +69,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
       language: languageChanged ? _selectedLanguage : null,
     );
 
-    // Aunque falle el guardado en el backend (por ejemplo, sin internet),
-    // el idioma de la interfaz sí se puede cambiar de una — es una
-    // preferencia local, no depende del servidor para verse.
+
     if (languageChanged) {
       await appSettings.setLanguage(
         _selectedLanguage == 'en' ? AppLanguage.en : AppLanguage.es,

@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import '../components/auth_background.dart';
+import '../components/auth_palette.dart';
+import '../components/auth_primary_button.dart';
+import '../components/auth_wordmark.dart';
+import '../components/dark_card.dart';
+import '../components/tinta_dark_field.dart';
 import '../viewmodels/auth_viewmodel.dart';
 
+/// Pantalla de inicio de sesión.
 class LoginView extends StatefulWidget {
   final AuthViewModel viewModel;
   final VoidCallback onNavigateToRegister;
@@ -25,16 +32,6 @@ class _LoginViewState extends State<LoginView> {
   final _buttonKey = GlobalKey();
   bool _obscurePassword = true;
 
-  // ── Paleta Tinta (versión negra) ─────────────────────────────
-  static const _mintPrimary   = Color(0xFF3DBF7A);
-  static const _warmGold      = Color(0xFFF5C842);
-  static const _peach         = Color(0xFFFFBF9B);
-  static const _pureBlack     = Color(0xFF000000);
-  static const _cardBlack     = Color(0xFF121212);
-  static const _fieldBlack    = Color(0xFF1C1C1E);
-  static const _lightText     = Color(0xFFE8EAE6);
-  static const _mutedText     = Color(0xFF9AA0A6);
-
   @override
   void initState() {
     super.initState();
@@ -50,19 +47,18 @@ class _LoginViewState extends State<LoginView> {
     super.dispose();
   }
 
-  /// Hace scroll para que el botón de ingresar sea visible sobre el teclado.
+  /// Hace scroll para que el botón "Ingresar" quede visible sobre el
   void _scrollToButton() {
     Future.delayed(const Duration(milliseconds: 350), () {
       if (!mounted) return;
       final ctx = _buttonKey.currentContext;
-      if (ctx != null) {
-        Scrollable.ensureVisible(
-          ctx,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-        );
-      }
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
     });
   }
 
@@ -72,44 +68,31 @@ class _LoginViewState extends State<LoginView> {
       widget.onLoginSuccess();
     } else if (state == AuthState.error) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.viewModel.errorMessage ?? 'Error al iniciar sesión')),
+        SnackBar(
+          content: Text(widget.viewModel.errorMessage ?? 'Error al iniciar sesión'),
+        ),
       );
       widget.viewModel.resetState();
     }
   }
 
+  void _submit() {
+    if (_formKey.currentState!.validate()) {
+      widget.viewModel.login(_emailController.text, _passwordController.text);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Uso textTheme para respetar la tipografía global;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
-      backgroundColor: _pureBlack,
+      backgroundColor: AuthPalette.pureBlack,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Blobs decorativos de fondo ───────────────────────
-          Positioned(
-            top: -80,
-            right: -60,
-            child: _Blob(color: _mintPrimary.withOpacity(0.14), size: 260),
-          ),
-          Positioned(
-            bottom: -100,
-            left: -80,
-            child: _Blob(color: _warmGold.withOpacity(0.10), size: 300),
-          ),
-          Positioned(
-            top: 200,
-            left: -40,
-            child: _Blob(color: _peach.withOpacity(0.08), size: 180),
-          ),
-
-          // ── Grilla de puntos (cubre TODO el fondo) ──────────
-          Positioned.fill(
-            child: RepaintBoundary(
-              child: CustomPaint(painter: _DotGridPainter()),
-            ),
-          ),
-
-          // ── Contenido scrolleable ────────────────────────────
+          AuthBackground.login(),
           SafeArea(
             child: SingleChildScrollView(
               controller: _scrollController,
@@ -120,73 +103,26 @@ class _LoginViewState extends State<LoginView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 48),
-
-                    // Logo / wordmark — usa el ícono real de la app
-                    Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          clipBehavior: Clip.antiAlias,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Image.asset(
-                            'assets/icon/icon.png',
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: _mintPrimary,
-                              child: const Icon(Icons.auto_stories_rounded,
-                                  color: Colors.white, size: 22),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'tinta',
-                          style: TextStyle(
-                            fontFamily: 'PlusJakartaSans',
-                            fontWeight: FontWeight.w800,
-                            fontSize: 28,
-                            color: _lightText,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-
+                    const AuthWordmark(),
                     const SizedBox(height: 48),
-
-                    // Encabezado
                     Text(
                       'Bienvenido\nde vuelta',
-                      style: TextStyle(
-                        fontFamily: 'PlusJakartaSans',
-                        fontWeight: FontWeight.w800,
-                        fontSize: 36,
-                        height: 1.15,
-                        color: _lightText,
-                        letterSpacing: -0.8,
+                      style: textTheme.displaySmall?.copyWith(
+                        color: AuthPalette.lightText,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Continúa tu racha de lectura 🔥',
-                      style: TextStyle(
-                        fontFamily: 'DMSans',
-                        fontSize: 15,
-                        color: _mutedText,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: AuthPalette.mutedText,
                       ),
                     ),
-
                     const SizedBox(height: 40),
-
-                    // ── Tarjeta ───────────────────────────────────
-                    _DarkCard(
+                    DarkCard(
                       child: Column(
                         children: [
-                          // Campo email
-                          _TintaField(
+                          TintaDarkField(
                             controller: _emailController,
                             label: 'Correo electrónico',
                             icon: Icons.alternate_email_rounded,
@@ -194,11 +130,8 @@ class _LoginViewState extends State<LoginView> {
                             validator: (v) => v!.isEmpty ? 'Requerido' : null,
                             onTap: _scrollToButton,
                           ),
-
                           const SizedBox(height: 16),
-
-                          // Campo contraseña
-                          _TintaField(
+                          TintaDarkField(
                             controller: _passwordController,
                             label: 'Contraseña',
                             icon: Icons.lock_outline_rounded,
@@ -209,104 +142,37 @@ class _LoginViewState extends State<LoginView> {
                                 _obscurePassword
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
-                                color: _mutedText,
+                                color: AuthPalette.mutedText,
                                 size: 20,
                               ),
                               onPressed: () => setState(
-                                      () => _obscurePassword = !_obscurePassword),
+                                    () => _obscurePassword = !_obscurePassword,
+                              ),
                             ),
                             validator: (v) => v!.isEmpty ? 'Requerido' : null,
                           ),
-
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 28),
-
-                    // ── Botón de ingreso ─────────────────────────
+                    // Escuchamos solo aquí al viewmodel para reconstruir el
+                    // botón — así no repintamos todo el árbol al cambiar el
+                    // estado de carga.
                     ListenableBuilder(
                       key: _buttonKey,
                       listenable: widget.viewModel,
-                      builder: (context, _) {
-                        final isLoading =
-                            widget.viewModel.state == AuthState.loading;
-                        return SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: isLoading
-                                ? null
-                                : () {
-                              if (_formKey.currentState!.validate()) {
-                                widget.viewModel.login(
-                                  _emailController.text,
-                                  _passwordController.text,
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _mintPrimary,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor:
-                              _mintPrimary.withOpacity(0.5),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                            child: isLoading
-                                ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2.5),
-                            )
-                                : const Text(
-                              'Ingresar',
-                              style: TextStyle(
-                                fontFamily: 'PlusJakartaSans',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // ── Ir a Registro ────────────────────────────
-                    Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '¿No tienes cuenta? ',
-                            style: TextStyle(
-                              fontFamily: 'DMSans',
-                              fontSize: 14,
-                              color: _mutedText,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: widget.onNavigateToRegister,
-                            child: Text(
-                              'Regístrate',
-                              style: TextStyle(
-                                fontFamily: 'DMSans',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: _mintPrimary,
-                              ),
-                            ),
-                          ),
-                        ],
+                      builder: (context, _) => AuthPrimaryButton(
+                        isLoading: widget.viewModel.state == AuthState.loading,
+                        label: 'Ingresar',
+                        onPressed: _submit,
                       ),
                     ),
-
+                    const SizedBox(height: 32),
+                    _SwitchAuthRow(
+                      leading: '¿No tienes cuenta? ',
+                      linkLabel: 'Regístrate',
+                      onTap: widget.onNavigateToRegister,
+                    ),
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -319,133 +185,39 @@ class _LoginViewState extends State<LoginView> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Widgets de apoyo (internos a este archivo, no expuestos)
-// ─────────────────────────────────────────────────────────────────────────────
+class _SwitchAuthRow extends StatelessWidget {
+  final String leading;
+  final String linkLabel;
+  final VoidCallback onTap;
 
-class _Blob extends StatelessWidget {
-  final Color color;
-  final double size;
-  const _Blob({required this.color, required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-}
-
-class _DotGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    const spacing = 28.0;
-    final paint = Paint()
-      ..color = const Color(0xFFE8EAE6).withOpacity(0.045)
-      ..strokeCap = StrokeCap.round;
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), 1.5, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DotGridPainter old) => false;
-}
-
-/// Tarjeta oscura (reemplaza la neumórfica clara — esas sombras solo se
-/// ven bien sobre fondo claro; sobre negro se usa un borde sutil en vez
-/// de sombras dobles).
-class _DarkCard extends StatelessWidget {
-  final Widget child;
-  const _DarkCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121212),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: child,
-    );
-  }
-}
-
-class _TintaField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final bool obscureText;
-  final Widget? suffixIcon;
-  final TextInputType? keyboardType;
-  final String? Function(String?)? validator;
-  final VoidCallback? onTap;
-
-  const _TintaField({
-    required this.controller,
-    required this.label,
-    required this.icon,
-    this.obscureText = false,
-    this.suffixIcon,
-    this.keyboardType,
-    this.validator,
-    this.onTap,
+  const _SwitchAuthRow({
+    required this.leading,
+    required this.linkLabel,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      validator: validator,
-      onTap: onTap,
-      style: const TextStyle(
-        fontFamily: 'DMSans',
-        fontSize: 15,
-        color: Color(0xFFE8EAE6),
-      ),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(
-          fontFamily: 'DMSans',
-          fontSize: 14,
-          color: Color(0xFF9AA0A6),
-        ),
-        prefixIcon: Icon(icon, size: 20, color: const Color(0xFF9AA0A6)),
-        suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: const Color(0xFF1C1C1E),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide:
-          const BorderSide(color: Color(0xFF3DBF7A), width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide:
-          const BorderSide(color: Color(0xFFFF7E7E), width: 1.5),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide:
-          const BorderSide(color: Color(0xFFFF7E7E), width: 1.5),
-        ),
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+    final textTheme = Theme.of(context).textTheme;
+    return Center(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            leading,
+            style: textTheme.bodyMedium?.copyWith(color: AuthPalette.mutedText),
+          ),
+          GestureDetector(
+            onTap: onTap,
+            child: Text(
+              linkLabel,
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AuthPalette.mintPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

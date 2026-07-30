@@ -18,33 +18,22 @@ class StatsRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _StatCard(
-            icon: '🔥',
-            value: '$streakDays',
-            label: 'Racha',
-          ),
+          child: _StatCard(icon: '🔥', value: '$streakDays', label: 'Racha'),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _StatCard(
-            icon: '📚',
-            value: '$booksRead',
-            label: 'Libros',
-          ),
+          child: _StatCard(icon: '📚', value: '$booksRead', label: 'Libros'),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _StatCard(
-            icon: '📄',
-            value: '$pagesRead',
-            label: 'Páginas',
-          ),
+          child: _StatCard(icon: '📄', value: '$pagesRead', label: 'Páginas'),
         ),
       ],
     );
   }
 }
 
+/// Tarjeta individual con emoji, valor grande y etiqueta.
 class _StatCard extends StatelessWidget {
   final String icon;
   final String value;
@@ -76,7 +65,10 @@ class _StatCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(icon, style: const TextStyle(fontSize: 22)),
+          // headlineSmall del tema (24pt) para el emoji — antes fontSize: 22
+          // hardcodeado. El emoji queda cercano al tamaño original y ahora
+          // sigue la escala tipográfica del sistema.
+          Text(icon, style: textTheme.headlineSmall),
           const SizedBox(height: 6),
           Text(
             value,

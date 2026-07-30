@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:tinta/core/ui/theme3material/theme.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../../core/routing/route_observers.dart';
 import '../../../clubs/data/services/club_notification_service.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../../../../core/presentation/components/tinta_background.dart';

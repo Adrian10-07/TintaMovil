@@ -29,7 +29,7 @@ class _InviteDialogState extends State<InviteDialog> {
     super.dispose();
   }
 
-  /// Paso 1: buscar el club por ID para mostrar preview.
+  ///buscar el club por ID para mostrar preview.
   Future<void> _search() async {
     final input = _controller.text.trim();
     if (input.isEmpty) {
@@ -51,7 +51,7 @@ class _InviteDialogState extends State<InviteDialog> {
     }
   }
 
-  /// Paso 2: unirse al club.
+  ///unirse al club.
   Future<void> _join() async {
     if (_previewClub == null) return;
     setState(() { _isJoining = true; _error = null; });
