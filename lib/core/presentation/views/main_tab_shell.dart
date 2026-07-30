@@ -14,22 +14,7 @@ import '../../../features/clubs/data/services/club_notification_service.dart';
 import '../../../features/clubs/data/services/captcha_gate_service.dart';
 import '../../../features/clubs/presentation/views/club_captcha_view.dart';
 
-/// Shell raíz de la app tras el login.
-///
-/// Contiene la barra inferior PERMANENTE (Home / Explorar / Estudio /
-/// Club / Yo) y cambia entre pestañas con un [IndexedStack] en vez de
-/// apilar rutas con Navigator — por eso la barra nunca desaparece al
-/// cambiar de pestaña, no hace falta botón "back" entre ellas, y cada
-/// pestaña conserva su estado (scroll, formularios, etc.) al volver.
-///
-/// La barra SÍ desaparece cuando se abre una pantalla de detalle real
-/// (lector de EPUB, visor de PDF, detalle de libro) porque esas se abren
-/// con Navigator.push por ENCIMA de este shell, cubriéndolo entero.
-///
-/// La pestaña de Clubes exige pasar un captcha una sola vez por usuario
-/// (anti-spam) antes de mostrar el contenido real; una vez pasado, se
-/// conserva el indicador de notificaciones sin leer en el ícono de la
-/// barra inferior.
+/// barra de navegacion de la app
 class MainTabShell extends StatefulWidget {
   const MainTabShell({Key? key}) : super(key: key);
 
@@ -37,7 +22,8 @@ class MainTabShell extends StatefulWidget {
   State<MainTabShell> createState() => _MainTabShellState();
 }
 
-class _MainTabShellState extends State<MainTabShell> {
+class _MainTabShellState extends State<MainTabShell>
+    with WidgetsBindingObserver {
   int _index = 0;
   late final HomeViewModel _homeViewModel;
   late final ClubNotificationService _notifService;
@@ -46,11 +32,19 @@ class _MainTabShellState extends State<MainTabShell> {
   bool? _captchaPassed;
   String? _captchaCheckedForUserId;
 
+  /// Bandera para saber si el polling llegó a iniciarse.
+  /// Evita reanudar polling tras `resumed` si nunca arrancó
+  bool _pollingActive = false;
+
   @override
   void initState() {
     super.initState();
     _homeViewModel = sl<HomeViewModel>();
     _notifService = sl<ClubNotificationService>();
+
+    // Observer de ciclo de vida de la app para pausar/reanudar el polling
+    // de notificaciones cuando la app pasa a background y vuelve.
+    WidgetsBinding.instance.addObserver(this);
 
     // Iniciar polling de notificaciones cuando el userId esté disponible.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -58,14 +52,50 @@ class _MainTabShellState extends State<MainTabShell> {
       if (userId != null) {
         _notifService.initialize(userId);
         _notifService.startPolling();
+        _pollingActive = true;
       }
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notifService.stopPolling();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      // App en background: cortar polling para ahorrar batería/datos.
+        if (_pollingActive) {
+          _notifService.stopPolling();
+        }
+        break;
+      case AppLifecycleState.resumed:
+      // App vuelve al frente: reanudar polling y refrescar el badge.
+        if (_pollingActive) {
+          _notifService.startPolling();
+          _notifService.refresh();
+        } else {
+          // El userId puede haberse cargado mientras la app estaba en
+          // background: reintentar la inicialización.
+          final userId = context.read<UserViewModel>().profile?.id;
+          if (userId != null) {
+            _notifService.initialize(userId);
+            _notifService.startPolling();
+            _pollingActive = true;
+          }
+        }
+        break;
+      case AppLifecycleState.detached:
+      // App a punto de cerrarse: dispose() ya se encarga.
+        break;
+    }
   }
 
   void _onTap(int index) {

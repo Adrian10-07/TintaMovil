@@ -37,9 +37,26 @@ class _ChatInputBarState extends State<ChatInputBar> {
   Future<void> _onSend() async {
     final text = _controller.text.trim();
     if (text.isEmpty || widget.isSending) return;
+
     _controller.clear();
-    setState(() => _hasText = false);
-    await widget.onSend(text);
+    if (mounted) {
+      setState(() => _hasText = false);
+    }
+
+    try {
+      await widget.onSend(text);
+    } catch (e) {
+      // Si el envío lanza (además de los errores que ya devuelve el VM como
+      // string vía SnackBar), restauramos el texto para no perderlo.
+      if (mounted) {
+        _controller.text = text;
+        _controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: _controller.text.length),
+        );
+        setState(() => _hasText = true);
+      }
+      rethrow;
+    }
   }
 
   @override
