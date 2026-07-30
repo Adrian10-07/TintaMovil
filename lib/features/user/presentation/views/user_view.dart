@@ -10,17 +10,7 @@ import '../components/profile_header_section.dart';
 import '../components/settings_section.dart';
 import '../viewmodels/user_viewmodel.dart';
 
-/// Pantalla de perfil del usuario (Tab "Yo").
-///
-/// Campos disponibles del backend Identity:
-/// id, email, name, role, email_verified, avatar_url, language,
-/// created_at, updated_at.
-///
-/// Refactor: la vista bajó de 547 → ~110 líneas. Solo orquesta 3
-/// secciones (`ProfileHeaderSection`, `AccountInfoSection`,
-/// `SettingsSection`) y delega el logout a `LogoutDialog`. Los widgets
-/// helper (`_InfoCard`, `_InfoRow`, `_MenuSection`) se movieron dentro
-/// de sus componentes correspondientes.
+/// Pantalla de perfil del usuario
 class UserView extends StatefulWidget {
   const UserView({Key? key}) : super(key: key);
 
@@ -130,10 +120,7 @@ class _UserViewState extends State<UserView> {
 }
 
 /// Estado de error cuando falla la carga inicial del perfil.
-///
-/// Lo mantengo aquí porque solo aplica a esta vista y depende de su
-/// callback `onRetry` — sacarlo a un componente propio no aportaría
-/// reuso.
+
 class _ErrorState extends StatelessWidget {
   final String? message;
   final VoidCallback onRetry;

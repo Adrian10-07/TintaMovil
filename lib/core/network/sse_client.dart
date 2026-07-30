@@ -3,19 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// Cliente ligero para consumir Server-Sent Events (SSE).
-///
-/// El backend tutor-ai devuelve responses con Content-Type: text/event-stream
-/// donde cada evento tiene el formato:
-///
-///     data: {"token": "hola"}
-///     \n
-///     data: {"done": true, "sources": [...]}
-///     \n
-///
-/// Este cliente parsea ese stream y emite cada objeto JSON como un
-/// Map<String, dynamic>. La capa que lo consume decide qué significa cada
-/// evento (token, done, error).
+
 class SseClient {
   final http.Client _client;
 

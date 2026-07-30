@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Transición fluida tipo "fade + slide sutil" para navegación entre
-/// pantallas — se siente más suave que el slide brusco por defecto de
-/// Android. Úsala en vez de MaterialPageRoute cuando quieras que el
-/// cambio de pantalla se sienta más natural (por ejemplo, al navegar
-/// desde la barra inferior).
+/// pantallas se siente más suave
 Route<T> fadeSlideRoute<T>(Widget page) {
   return PageRouteBuilder<T>(
     transitionDuration: const Duration(milliseconds: 320),

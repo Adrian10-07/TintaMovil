@@ -2,24 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../settings/app_settings_controller.dart';
 
-/// Diccionario simple de traducciones. No es flutter_localizations (eso
-/// requeriría generar archivos .arb y regenerar código); esto es un mapa
-/// directo ES/EN pensado para poder extenderse fácil.
-///
-/// Cubre por ahora: barra inferior, saludo de Home, y las pantallas de
-/// Perfil/Configuración. El resto de la app sigue en español fijo — se
-/// puede ir agregando más claves aquí según se necesite.
+
 class AppStrings {
   final AppLanguage language;
   const AppStrings(this.language);
 
   /// Forma corta de usar el diccionario dentro de un widget:
   /// `AppStrings.of(context).home`
-  ///
   /// Usa Provider (AppSettingsController ya está registrado globalmente
   /// en main.dart), así que cualquier widget que llame esto se reconstruye
-  /// solo cuando cambia el idioma — no hace falta pasar el controller a
-  /// mano por cada widget.
   static AppStrings of(BuildContext context) {
     final controller = context.watch<AppSettingsController>();
     return AppStrings(controller.language);

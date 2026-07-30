@@ -1,16 +1,11 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Persiste los tokens de sesión CIFRADOS en el dispositivo (Android
-/// Keystore / iOS Keychain vía flutter_secure_storage), no en texto
-/// plano como antes.
-///
-/// Antes esto usaba SharedPreferences — que guarda todo en un XML/archivo
+/// Keystore / iOS Keychain vía flutter_secure_storage)
 /// legible sin cifrar. Un atacante con acceso físico al dispositivo y
 /// depuración USB (o un backup de ADB) podía leer el token directo. Con
 /// flutter_secure_storage, Android cifra el valor con una llave que vive
-/// en el Keystore del hardware (no es extraíble ni siquiera con root en
-/// la mayoría de los dispositivos modernos); en iOS se guarda en el
-/// Keychain del sistema, protegido igual.
+/// en el Keystore del hardware (no es extraíble ni siquiera con root
 class SessionStorage {
   static const _accessKey = 'session_access_token';
   static const _refreshKey = 'session_refresh_token';
