@@ -37,7 +37,8 @@ class ClubChatView extends StatefulWidget {
   State<ClubChatView> createState() => _ClubChatViewState();
 }
 
-class _ClubChatViewState extends State<ClubChatView> {
+class _ClubChatViewState extends State<ClubChatView>
+    with WidgetsBindingObserver {
   late final ClubChatViewModel _vm;
   final _scrollController = ScrollController();
   ClubRole? _myRole;
@@ -69,6 +70,10 @@ class _ClubChatViewState extends State<ClubChatView> {
     _scrollController.addListener(_onScroll);
     _vm.initialize();
 
+    // Registrar observer de ciclo de vida de la app para pausar/reanudar
+    // el realtime cuando la app pase a background y vuelva.
+    WidgetsBinding.instance.addObserver(this);
+
     // Marcar club como visto para el badge de notificaciones.
     sl<ClubNotificationService>().markClubAsSeen(widget.clubId);
 
@@ -95,9 +100,28 @@ class _ClubChatViewState extends State<ClubChatView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _vm.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        _vm.pauseRealtime();
+        break;
+      case AppLifecycleState.resumed:
+        _vm.resumeRealtime();
+        break;
+      case AppLifecycleState.detached:
+      // no-op: la app se está cerrando; dispose() ya limpia todo.
+        break;
+    }
   }
 
   void _onScroll() {
