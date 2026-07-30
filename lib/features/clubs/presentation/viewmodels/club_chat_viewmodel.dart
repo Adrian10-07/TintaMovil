@@ -57,6 +57,9 @@ class ClubChatViewModel extends ChangeNotifier {
 
   StreamSubscription<Discussion>? _wsSub;
 
+  /// Marca si el realtime está pausado por AppLifecycleState (background).
+  bool _realtimePaused = false;
+
   // ── Ciclo de vida ─────────────────────────────────────────────────────
 
   /// Inicializa el chat: carga caché → sync con servidor → conecta WS.
@@ -93,10 +96,42 @@ class ClubChatViewModel extends ChangeNotifier {
   }
 
   /// Limpia recursos al cerrar el chat.
+  @override
   void dispose() {
     _wsSub?.cancel();
     _ws.disconnect();
     super.dispose();
+  }
+
+  // ── Ciclo de vida de la app (AppLifecycleState) ───────────────────────
+
+  /// Corta el flujo en tiempo real cuando la app pasa a background.
+  /// Cancela la suscripción al stream y desconecta el WebSocket (que hoy
+  /// hace polling con backoff exponencial) para no gastar batería/datos.
+  Future<void> pauseRealtime() async {
+    if (_realtimePaused) return;
+    _realtimePaused = true;
+    await _wsSub?.cancel();
+    _wsSub = null;
+    _ws.disconnect();
+  }
+
+  /// Reanuda el flujo en tiempo real al volver de background.
+  /// Resincroniza contra el servidor para traer lo que se perdió y
+  /// vuelve a conectar el WebSocket + resuscribirse al stream.
+  Future<void> resumeRealtime() async {
+    if (!_realtimePaused) return;
+    _realtimePaused = false;
+    try {
+      await _syncFromServer();
+      if (_messages.isNotEmpty && _state != ChatState.loaded) {
+        _state = ChatState.loaded;
+      }
+    } catch (_) {
+      // No bloquear la reconexión si la sync inicial falla.
+    }
+    _connectRealTime();
+    notifyListeners();
   }
 
   // ── Envío de mensajes ─────────────────────────────────────────────────
@@ -293,6 +328,9 @@ class ClubChatViewModel extends ChangeNotifier {
 
   /// Conecta al stream de mensajes en tiempo real.
   void _connectRealTime() {
+    // Cancelar suscripción previa si existe (caso resumeRealtime tras pause).
+    _wsSub?.cancel();
+
     _ws.setFetchCallback((clubId, {int page = 1, int pageSize = 20}) {
       return _repository
           .listDiscussions(
